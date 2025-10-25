@@ -1,0 +1,7 @@
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+trender-contract/solana-release/bin/perf-libs/solana-perf.tgz filter=lfs diff=lfs merge=lfs -text
+trender-contract/solana.tar.bz2 filter=lfs diff=lfs merge=lfs -text
+*.tar.bz2 filter=lfs diff=lfs merge=lfs -text
+*.tgz filter=lfs diff=lfs merge=lfs -text

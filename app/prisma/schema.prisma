@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventType {
+  HYPE
+  UNHYPE
+}
+
+model Post {
+  id          Int      @id @default(autoincrement())
+  userPubKey  String
+  title       String
+  content     String
+  publishedAt DateTime @default(now())
+  events      Event[]
+}
+
+model Event {
+  id         Int       @id @default(autoincrement())
+  postId     Int
+  post       Post      @relation(fields: [postId], references: [id])
+  eventType  EventType
+  userPubKey String
+  amount     Int
+  price      Float
+  totalCost  Float
+  timestamp  DateTime
+}

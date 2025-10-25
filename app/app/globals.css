@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 15% 8%;
+    --foreground: 0 0% 98%;
+    --card: 220 15% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 220 15% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 158 100% 50%;
+    --primary-foreground: 220 15% 8%;
+    --secondary: 280 100% 60%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 220 15% 18%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 158 100% 50%;
+    --accent-foreground: 220 15% 8%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 15% 20%;
+    --input: 220 15% 20%;
+    --ring: 158 100% 50%;
+    --radius: 0.75rem;
+    --neon-cyan: 180 100% 50%;
+    --neon-pink: 320 100% 50%;
+    --neon-green: 158 100% 50%;
+    --neon-yellow: 50 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background: linear-gradient(to bottom, hsl(220 15% 8%), hsl(220 15% 5%));
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .neon-glow {
+    box-shadow: 0 0 10px hsla(var(--neon-cyan), 0.3),
+                0 0 20px hsla(var(--neon-cyan), 0.2),
+                0 0 30px hsla(var(--neon-cyan), 0.1);
+  }
+
+  .neon-glow-pink {
+    box-shadow: 0 0 10px hsla(var(--neon-pink), 0.3),
+                0 0 20px hsla(var(--neon-pink), 0.2),
+                0 0 30px hsla(var(--neon-pink), 0.1);
+  }
+
+  .neon-glow-green {
+    box-shadow: 0 0 10px hsla(var(--neon-green), 0.3),
+                0 0 20px hsla(var(--neon-green), 0.2),
+                0 0 30px hsla(var(--neon-green), 0.1);
+  }
+
+  .gradient-border {
+    position: relative;
+    background: hsl(var(--card));
+    border-radius: var(--radius);
+  }
+
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    padding: 2px;
+    background: linear-gradient(135deg,
+      hsl(var(--neon-cyan)),
+      hsl(var(--neon-pink)),
+      hsl(var(--neon-green)),
+      hsl(var(--neon-yellow))
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+}
