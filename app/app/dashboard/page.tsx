@@ -185,7 +185,7 @@ export default function Dashboard() {
             <TabsContent value="my-hype" className="space-y-4 mt-6">
               <div>
                 <h2 className="text-2xl font-bold mb-1">Your Hype Positions</h2>
-                <p className="text-sm text-muted-foreground">Posts you've hyped and their performance</p>
+                <p className="text-sm text-muted-foreground">Posts {"you've"} hyped and their performance</p>
               </div>
 
               <div className="space-y-4">
