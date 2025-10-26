@@ -5,63 +5,228 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Flame, TrendingUp, Coins, DollarSign, ExternalLink, Edit } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { PostType, tradeOrdersType } from '@/types/types';
+import axios from 'axios';
+import { getPostPoolAccount, getUserHypeRecord } from '@/utils/smartcontractHandlers';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
+
+interface PostTypeOwner extends PostType {
+  creatorHypeBalance: number;
+}
+
+interface HypePosition extends PostType {
+  tradeOrders: tradeOrdersType[];
+  pnl: number;
+  pnlPercent: number;
+  investedSOL: number;
+  currentValue: number;
+}
 
 export default function Dashboard() {
-  const myPosts = [
-    {
-      id: '1',
-      title: 'Building on Solana: A Guide',
-      solLocked: 42.7,
-      totalHype: 3420,
-      earnings: 2.34,
-      status: 'active',
-    },
-    {
-      id: '2',
-      title: 'DAO Governance Best Practices',
-      solLocked: 21.4,
-      totalHype: 1920,
-      earnings: 1.12,
-      status: 'active',
-    },
-  ];
+  const walletCtx = useWallet();
 
-  const myHypePositions = [
-    {
-      id: '1',
-      postTitle: 'The Future of Solana NFTs',
-      hypeAmount: 50,
-      investedSOL: 1.17,
-      currentValue: 1.42,
-      pnl: 0.25,
-      pnlPercent: 21.4,
-    },
-    {
-      id: '2',
-      postTitle: 'Web3 Gaming Takes Off',
-      hypeAmount: 25,
-      investedSOL: 0.78,
-      currentValue: 0.89,
-      pnl: 0.11,
-      pnlPercent: 14.1,
-    },
-    {
-      id: '3',
-      postTitle: 'DAO Governance Best Practices',
-      hypeAmount: 75,
-      investedSOL: 2.99,
-      currentValue: 2.84,
-      pnl: -0.15,
-      pnlPercent: -5.0,
-    },
-  ];
+  const [myPosts, setMyPosts] = useState<PostTypeOwner[]>([]);
+  const [myHypePositions, setMyHypePositions] = useState<HypePosition[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const totalEarnings = myPosts.reduce((sum, post) => sum + post.earnings, 0);
-  const totalLocked = myPosts.reduce((sum, post) => sum + post.solLocked, 0);
+  const getAllPosts = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    if (!walletCtx.connected) {
+      console.error("Wallet not connected");
+      setError("Please connect your wallet to view your posts");
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      const getAllPostsRes = await axios.get('/api/post/get-by-user', {
+        params: {
+          userPubKey: walletCtx.publicKey?.toBase58() || ''
+        }
+      });
+
+      if (getAllPostsRes.status !== 200) {
+        console.error("Error getting all posts: ", getAllPostsRes.data.message);
+        setError(getAllPostsRes.data.message || "Failed to fetch posts");
+        return;
+      }
+
+      let allPosts: PostTypeOwner[] = [];
+      for (let post of getAllPostsRes.data.allPosts) {
+        const postPool = await getPostPoolAccount(walletCtx, new PublicKey(post.userPubKey), post.id);
+        if (!postPool) {
+          console.log("No post pool PDA found");
+          continue;
+        }
+
+        let hypeRecord = null;
+        try {
+          hypeRecord = await getUserHypeRecord(walletCtx, new PublicKey(post.userPubKey), post.id);
+        } catch (error) {
+          // User might not have a hype record for this post, which is fine
+        }
+
+        console.log("reservedHype: ", postPool.reservedHype.toNumber());
+        console.log("reservedSol: ", postPool.reservedSol.toNumber());
+
+        const ammConstant = postPool.reservedHype.toNumber() * postPool.reservedSol.toNumber();
+        const newReservedHype = postPool.reservedHype.toNumber() - 1000000;
+        const newReservedSol = ammConstant/newReservedHype;
+        const price = (newReservedSol - postPool.reservedSol.toNumber());
+
+        console.log("postPool: ", postPool);
+
+        let postDetails: PostTypeOwner = {
+          id: post.id,
+          title: post.title,
+          content: post.content,
+          creator: post.userPubKey,
+          hypePrice: price/1e9,
+          reservedSol: postPool.reservedSol.toNumber(),
+          reservedHype: postPool.reservedHype.toNumber(),
+          totalHype: postPool.totalHype.toNumber(),
+          creatorHypeBalance: postPool.creatorHypeBalance.toNumber(),
+          userHypeBalance: hypeRecord ? hypeRecord.amount.toNumber() : 0
+        }
+
+        console.log("post to push: ", postDetails);
+
+        allPosts.push(postDetails);
+      }
+
+      setMyPosts(allPosts);
+    } catch (error) {
+      console.error("Unable to get all the posts: ", error);
+      setError("Failed to fetch posts");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getAllPositionsUserHyped = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    if (!walletCtx.connected) {
+      console.error("Wallet not connected");
+      setError("Please connect your wallet to view your posts");
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      const getAllPostsRes = await axios.get('/api/post/get-by-user', {
+        params: {
+          userPubKey: walletCtx.publicKey?.toBase58() || ''
+        }
+      });
+
+      if (getAllPostsRes.status !== 200) {
+        console.error("Error getting all posts: ", getAllPostsRes.data.message);
+        setError(getAllPostsRes.data.message || "Failed to fetch posts");
+        return;
+      }
+
+      let allPosts: HypePosition[] = [];
+      for (let post of getAllPostsRes.data.allPosts) {
+        const postPool = await getPostPoolAccount(walletCtx, new PublicKey(post.userPubKey), post.id);
+        if (!postPool) {
+          console.log("No post pool PDA found");
+          continue;
+        }
+
+        const hypeRecord = await getUserHypeRecord(walletCtx, new PublicKey(post.userPubKey), post.id);
+        if (!hypeRecord || hypeRecord.amount.toNumber() === 0) {
+          continue;
+        }
+
+        console.log("reservedHype: ", postPool.reservedHype.toNumber());
+        console.log("reservedSol: ", postPool.reservedSol.toNumber());
+
+        const ammConstant = postPool.reservedHype.toNumber() * postPool.reservedSol.toNumber();
+        const newReservedHype = postPool.reservedHype.toNumber() - 1000000;
+        const newReservedSol = ammConstant/newReservedHype;
+        const price = (newReservedSol - postPool.reservedSol.toNumber());
+
+        console.log("postPool: ", postPool);
+
+        // Get all trade orders for this post and user - 'buy'/'HYPE' orders only
+        const tradeOrdersRes = await axios.get('/api/trades/get-trade-orders', {
+          params: {
+            postId: post.id,
+            userPubKey: walletCtx.publicKey?.toBase58() || '',
+            eventType: 'HYPE'
+          }
+        });
+
+        if (tradeOrdersRes.status !== 200) {
+          console.error("Error getting trade orders: ", tradeOrdersRes.data.message);
+          setError(tradeOrdersRes.data.message || "Failed to fetch trade orders");
+          return;
+        }
+
+        console.log("trade orders for this post: ", tradeOrdersRes.data.tradeData);
+        const tradeOrders: tradeOrdersType[] = tradeOrdersRes.data.tradeData;
+
+        let postDetails: HypePosition = {
+          id: post.id,
+          title: post.title,
+          content: post.content,
+          creator: post.userPubKey,
+          hypePrice: price/1e9,
+          reservedSol: postPool.reservedSol.toNumber(),
+          reservedHype: postPool.reservedHype.toNumber(),
+          totalHype: postPool.totalHype.toNumber(),
+          userHypeBalance: hypeRecord ? hypeRecord.amount.toNumber() : 0,
+          tradeOrders: tradeOrders,
+          currentValue: price/1e9 * (hypeRecord ? hypeRecord.amount.toNumber()/1e6 : 0),
+          investedSOL: tradeOrders.reduce((sum, order) => sum + order.totalCost, 0)/1e9,
+          pnl: (price/1e9 * (hypeRecord ? hypeRecord.amount.toNumber()/1e6 : 0)) - (tradeOrders.reduce((sum, order) => sum + order.totalCost, 0)/1e9),
+          pnlPercent: (((price/1e9 * (hypeRecord ? hypeRecord.amount.toNumber()/1e6 : 0)) - (tradeOrders.reduce((sum, order) => sum + order.totalCost, 0)/1e9)) / (tradeOrders.reduce((sum, order) => sum + order.totalCost, 0)/1e9)) * 100
+        }
+
+        console.log("post to push that user hyped: ", postDetails);
+
+        allPosts.push(postDetails);
+      }
+
+      setMyHypePositions(allPosts);
+    } catch (error) {
+      console.error("Unable to get all the posts: ", error);
+      setError("Failed to fetch posts");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const totalLiquidity = myPosts.reduce((sum, post) => sum + post.reservedSol, 0);
+  const totalLockedHype = myPosts.reduce((sum, post) => sum + post.reservedHype, 0);
+  const totalWonerHypeBalance = myPosts.reduce((sum, post) => sum + post.creatorHypeBalance, 0);
   const totalInvested = myHypePositions.reduce((sum, pos) => sum + pos.investedSOL, 0);
   const totalCurrentValue = myHypePositions.reduce((sum, pos) => sum + pos.currentValue, 0);
-  const totalPnL = totalCurrentValue - totalInvested;
-  const totalPnLPercent = totalInvested > 0 ? (totalPnL / totalInvested) * 100 : 0;
+  const totalPnl = totalCurrentValue - totalInvested;
+  const totalPnlPercent = (totalPnl / totalInvested) * 100;
+  
+  const totalOwnerHypeBalanceValueSOL = myPosts.reduce((sum, post) => {
+    const ammConstant = post.reservedHype * post.reservedSol;
+    const newHypeBalance = post.reservedHype + post.creatorHypeBalance;
+    const newReservedSol = ammConstant / newHypeBalance;
+    const valueSOL = post.reservedSol - newReservedSol;
+    return sum + valueSOL;
+  }, 0);
+
+  useEffect(() => {
+    getAllPosts();
+  }, [walletCtx.connected]);
+
+  useEffect(() => {
+    getAllPositionsUserHyped();
+  }, [walletCtx.connected]);
 
   return (
     <main className="min-h-screen py-12">
@@ -77,13 +242,13 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="p-6 border-cyan-500/30 bg-card/50 backdrop-blur-sm hover:neon-glow transition-all">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-muted-foreground">Total Earnings</p>
+                <p className="text-sm text-muted-foreground">Total Reserved SOL</p>
                 <div className="p-2 rounded-lg bg-cyan-500/10">
                   <DollarSign className="h-4 w-4 text-cyan-400" />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-cyan-400">{totalEarnings.toFixed(2)} SOL</p>
-              <p className="text-xs text-muted-foreground mt-2">From creator fees</p>
+              <p className="text-3xl font-bold text-cyan-400">{(totalLiquidity/1e9).toFixed(9)} SOL</p>
+              <p className="text-xs text-muted-foreground mt-2">Total SOL reserved on your all posts</p>
             </Card>
 
             <Card className="p-6 border-green-500/30 bg-card/50 backdrop-blur-sm hover:neon-glow-green transition-all">
@@ -93,7 +258,7 @@ export default function Dashboard() {
                   <Coins className="h-4 w-4 text-green-400" />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-green-400">{totalLocked.toFixed(2)} SOL</p>
+              <p className="text-3xl font-bold text-green-400">{(totalLockedHype/1e6).toFixed(6)} HYPE</p>
               <p className="text-xs text-muted-foreground mt-2">In your posts</p>
             </Card>
 
@@ -108,18 +273,18 @@ export default function Dashboard() {
               <p className="text-xs text-muted-foreground mt-2">Live on platform</p>
             </Card>
 
-            <Card className={`p-6 border-${totalPnL >= 0 ? 'green' : 'red'}-500/30 bg-card/50 backdrop-blur-sm transition-all`}>
+            <Card className={`p-6 border-green-500/30 bg-card/50 backdrop-blur-sm transition-all`}>
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm text-muted-foreground">Portfolio P&L</p>
-                <div className={`p-2 rounded-lg bg-${totalPnL >= 0 ? 'green' : 'red'}-500/10`}>
-                  <TrendingUp className={`h-4 w-4 text-${totalPnL >= 0 ? 'green' : 'red'}-400`} />
+                <p className="text-sm text-muted-foreground">Owner hype bonus balance</p>
+                <div className={`p-2 rounded-lg bg-green-500/10`}>
+                  <TrendingUp className={`h-4 w-4 text-green-400`} />
                 </div>
               </div>
-              <p className={`text-3xl font-bold text-${totalPnL >= 0 ? 'green' : 'red'}-400`}>
-                {totalPnL >= 0 ? '+' : ''}{totalPnL.toFixed(2)} SOL
+              <p className={`text-3xl font-bold text-green-400`}>
+                {(totalWonerHypeBalance/1e6).toFixed(6)} HYPE
               </p>
-              <p className={`text-xs mt-2 text-${totalPnL >= 0 ? 'green' : 'red'}-400`}>
-                {totalPnLPercent >= 0 ? '+' : ''}{totalPnLPercent.toFixed(1)}%
+              <p className={`text-xs mt-2 text-green-400`}>
+                {(totalOwnerHypeBalanceValueSOL/1e9).toFixed(9)} SOL
               </p>
             </Card>
           </div>
@@ -146,35 +311,28 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-xl font-bold">{post.title}</h3>
                           <Badge variant="outline" className="border-green-500/50 text-green-400">
-                            {post.status}
+                            {(post.totalHype/1e6).toFixed(6)} HYPE
                           </Badge>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline" className="gap-2">
-                        <Edit className="h-3 w-3" />
-                        Edit
-                      </Button>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-b border-border/50">
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">TVL</p>
-                        <p className="font-bold text-cyan-400">{post.solLocked.toFixed(2)} SOL</p>
+                        <p className="font-bold text-cyan-400">{(post.reservedSol/1e9).toFixed(9)} SOL</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Total Hype</p>
-                        <p className="font-bold text-pink-400">{post.totalHype}</p>
+                        <p className="font-bold text-pink-400">{(post.totalHype/1e6).toFixed(6)} HYPE</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Earnings</p>
-                        <p className="font-bold text-green-400">{post.earnings.toFixed(2)} SOL</p>
+                        <p className="text-xs text-muted-foreground mb-1">Holdings</p>
+                        <p className="font-bold text-green-400">{post.userHypeBalance ? (post.userHypeBalance/1e6).toFixed(6) : 0} HYPE</p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">Actions</p>
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-cyan-400 hover:text-cyan-300">
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          View
-                        </Button>
+                        <p className="text-xs text-muted-foreground mb-1">Price</p>
+                        <p className="font-bold text-green-400">{post.hypePrice.toFixed(9)} SOL/HYPE</p>
                       </div>
                     </div>
                   </Card>
@@ -193,11 +351,11 @@ export default function Dashboard() {
                   <Card key={position.id} className="p-6 border-border/50 bg-card/50 backdrop-blur-sm hover:border-pink-500/50 transition-all">
                     <div className="flex items-start justify-between gap-4 mb-4">
                       <div className="flex-1">
-                        <h3 className="text-xl font-bold mb-2">{position.postTitle}</h3>
+                        <h3 className="text-xl font-bold mb-2">{position.title}</h3>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="border-pink-500/50 text-pink-400">
                             <Flame className="h-3 w-3 mr-1" />
-                            {position.hypeAmount} Hype
+                            {position.userHypeBalance} Hype
                           </Badge>
                           <Badge
                             variant="outline"
@@ -212,16 +370,16 @@ export default function Dashboard() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-border/50">
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Invested</p>
-                        <p className="font-bold">{position.investedSOL.toFixed(2)} SOL</p>
+                        <p className="font-bold">{position.investedSOL.toFixed(9)} SOL</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">Current Value</p>
-                        <p className="font-bold text-cyan-400">{position.currentValue.toFixed(2)} SOL</p>
+                        <p className="font-bold text-cyan-400">{position.currentValue.toFixed(9)} SOL</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">P&L</p>
                         <p className={`font-bold text-${position.pnl >= 0 ? 'green' : 'red'}-400`}>
-                          {position.pnl >= 0 ? '+' : ''}{position.pnl.toFixed(2)} SOL
+                          {position.pnl >= 0 ? '+' : ''}{position.pnl.toFixed(9)} SOL
                         </p>
                       </div>
                       <div>

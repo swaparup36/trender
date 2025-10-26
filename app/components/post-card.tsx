@@ -14,6 +14,7 @@ export function PostCard({
   content,
   creator,
   reservedSol,
+  reservedHype,
   hypePrice,
   totalHype,
   userHypeBalance = 0,
@@ -64,7 +65,7 @@ export function PostCard({
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Hype Price</p>
-            <p className="font-bold text-sm text-pink-400">{(hypePrice/1e6).toFixed(9)} SOL</p>
+            <p className="font-bold text-sm text-pink-400">{(hypePrice).toFixed(9)} SOL</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Your Hype</p>
@@ -101,6 +102,7 @@ export function PostCard({
           title,
           creator,
           reservedSol,
+          reservedHype,
           hypePrice,
           totalHype,
           userHypeBalance,

@@ -13,11 +13,11 @@ export async function GET(req: NextRequest){
         });
     } catch (error) {
         const err = error as Error;
-        console.log('redis err: ', err.message);
+        console.log('get all posts err: ', err.message);
 
         return NextResponse.json({
             success: false,
-            message: 'error occured redis',
+            message: 'error occured getting all posts',
         }, { status: 500 });
     }
 }

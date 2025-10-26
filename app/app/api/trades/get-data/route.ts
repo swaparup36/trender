@@ -64,11 +64,11 @@ export async function GET(req: NextRequest){
         });
     } catch (error) {
         const err = error as Error;
-        console.log('redis err: ', err.message);
+        console.log('get trade data err: ', err.message);
 
         return NextResponse.json({
             success: false,
-            message: 'error occured redis',
+            message: 'error occured on get trade data',
         }, { status: 500 });
     }
 }

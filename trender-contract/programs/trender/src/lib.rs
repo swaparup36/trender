@@ -126,10 +126,19 @@ pub mod trender {
         post_pool.reserved_hype = post_pool.reserved_hype.checked_sub(amount).unwrap();
         post_pool.total_hype = post_pool.total_hype.checked_add(amount).unwrap();
 
-        hype_record.user = ctx.accounts.buyer.key();
-        hype_record.post_pool = post_pool.to_account_info().key();
-        hype_record.amount = amount;
-        hype_record.bump = ctx.bumps.hype_record;
+        // Check if this is a new hype record or updating an existing one
+        let is_new_record = hype_record.user == Pubkey::default();
+        
+        if is_new_record {
+            // Initialize new hype record
+            hype_record.user = ctx.accounts.buyer.key();
+            hype_record.post_pool = post_pool.to_account_info().key();
+            hype_record.amount = amount;
+            hype_record.bump = ctx.bumps.hype_record;
+        } else {
+            // Update existing hype record by adding to the current amount
+            hype_record.amount = hype_record.amount.checked_add(amount).unwrap();
+        }
 
         let amount_u64: u64 = amount.try_into().map_err(|_| error!(TrenderError::AmountTooLarge))?;
         let price_per_unit = price.checked_div(amount).unwrap();
@@ -345,7 +354,7 @@ pub struct HypePost<'info> {
     #[account(mut, seeds = [b"vault", post_pool.creator.as_ref(), &post_pool.post_id.to_le_bytes()], bump = post_pool.vault_bump)]
     pub post_vault: Account<'info, PostVault>,
 
-    #[account(init, payer = buyer, space = 8 + HypeRecord::MAX_SIZE, seeds = [b"hype_record", buyer.key().as_ref(), post_pool.key().as_ref()], bump)]
+    #[account(init_if_needed, payer = buyer, space = 8 + HypeRecord::MAX_SIZE, seeds = [b"hype_record", buyer.key().as_ref(), post_pool.key().as_ref()], bump)]
     pub hype_record: Account<'info, HypeRecord>,
 
     /// CHECK: Treasury PDA used to receive purchase fees.

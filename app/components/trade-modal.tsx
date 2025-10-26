@@ -8,13 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { ArrowDownUp, TrendingUp, TrendingDown, Info } from 'lucide-react';
-import { useState, useMemo, useEffect } from 'react';
-import { getPostPoolAccount, getUserHypeRecord, hypePost, unhypePost } from '@/utils/smartcontractHandlers';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { getPostPoolAccount, hypePost, unhypePost, getUserHypeRecord } from '@/utils/smartcontractHandlers';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { cahrtDataType, PostType } from '@/types/types';
 import axios from 'axios';
 import CandleChart from './tradingChart';
+import { usePosts } from '@/contexts/PostsContext';
 
 interface TradeModalProps {
   open: boolean;
@@ -25,15 +26,17 @@ interface TradeModalProps {
 export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
   const walletCtx = useWallet();
   const { connection } = useConnection();
+  const { refreshPosts } = usePosts();
   const [post, setPost] = useState<PostType>(thisPost);
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
   const [fromAmount, setFromAmount] = useState('');
   const [toAmount, setToAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [transactionStatus, setTransactionStatus] = useState<string>('');
   const [chartData, setChartData] = useState<cahrtDataType[]>([]);
   const [solBalance, setSolBalance] = useState<number>(0);
 
-  const getChartData = async () => {
+  const getChartData = useCallback(async () => {
     try {
       const response = await axios.get(`/api/trades/get-data`, {
         params: {
@@ -51,7 +54,7 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
     } catch (error) {
       console.error("Failed to fetch event logs: ", error);
     }
-  }
+  }, [post.id, chartData]);
 
   const priceChange = useMemo(() => {
     // Calculate price change over the last interval
@@ -66,14 +69,23 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
     if (value && !isNaN(parseFloat(value))) {
       const amount = parseFloat(value);
       if (activeTab === 'buy') {
-        console.log("Hype price: ", post.hypePrice/1e6);
         console.log("Amount: ", amount);
-        const hypeAmount = amount / (post.hypePrice/1e6);
+        console.log("reservedHype: ", post.reservedHype);
+        const ammConstant = post.reservedHype * post.reservedSol;
+        console.log("ammConstant: ", ammConstant);
+        const newReservedSol = post.reservedSol + (amount*LAMPORTS_PER_SOL);
+        const newReservedHype = ammConstant / newReservedSol;
+        const hypeAmount = (post.reservedHype - newReservedHype)/1e6;
         console.log("Total hype amount: ", hypeAmount);
         setToAmount((hypeAmount).toFixed(6));
       } else {
-        const solAmount = amount * post.hypePrice;
-        setToAmount(solAmount.toFixed(4));
+        console.log("Amount: ", amount);
+        console.log("reservedHype: ", post.reservedHype);
+        const ammConstant = post.reservedHype * post.reservedSol;
+        const newReservedHype = post.reservedHype + (amount*1e6);
+        const newReservedSol = ammConstant / newReservedHype;
+        const solAmount = (post.reservedSol-newReservedSol)/LAMPORTS_PER_SOL;
+        setToAmount(solAmount.toFixed(9));
       }
     } else {
       setToAmount('');
@@ -82,8 +94,12 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
 
   const handleMaxClick = () => {
     if (activeTab === 'sell' && post.userHypeBalance) {
-      setFromAmount(post.userHypeBalance.toString());
-      setToAmount((post.userHypeBalance * post.hypePrice).toFixed(4));
+      setFromAmount((post.userHypeBalance/1e6).toString());
+      const ammConstant = post.reservedHype * post.reservedSol;
+      const newReservedHype = post.reservedHype + (post.userHypeBalance);
+      const newReservedSol = ammConstant / newReservedHype;
+      const solAmount = (post.reservedSol-newReservedSol)/LAMPORTS_PER_SOL;
+      setToAmount(solAmount.toFixed(9));
     }
   };
 
@@ -94,7 +110,14 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
   };
 
   const handleTrade = async (orderType: string) => {
+    // Prevent multiple simultaneous transactions
+    if (isProcessing) {
+      console.log("Transaction already in progress, ignoring request");
+      return;
+    }
+    
     setIsProcessing(true);
+    setTransactionStatus('Preparing transaction...');
     
     try {
       if (orderType === 'buy') {
@@ -102,20 +125,29 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
         const slippage = 0.005; // 0.5% slippage tolerance
         const maxAcceptablePrice = fromAmount ? parseFloat(fromAmount) * (1 + slippage) : 0;
 
-        const hypePostRes = await hypePost(walletCtx, new PublicKey(post.creator), post.id, parseFloat(toAmount), maxAcceptablePrice);
+        console.log("maxAcceptablePrice: ", maxAcceptablePrice);
+        setTransactionStatus('Sending transaction...');
+
+        const hypePostRes = await hypePost(walletCtx, new PublicKey(post.creator), post.id, parseFloat(toAmount)*1e6, maxAcceptablePrice*LAMPORTS_PER_SOL);
         console.log("Hype Post Result: ", hypePostRes);
 
-        if (!hypePostRes) {
-          console.error("Hype post transaction failed");
+        if (!hypePostRes.success) {
+          console.error("Hype post transaction failed:", hypePostRes.error);
+          setTransactionStatus(`Transaction failed: ${hypePostRes.error}`);
           return;
         }
 
         console.log("Hype post transaction successful");
+        setTransactionStatus('Transaction confirmed! Updating data...');
+
+        // Add a small delay before fetching updated data
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const hypeRecord = await getUserHypeRecord(walletCtx, new PublicKey(post.creator), post.id);
 
         if (!hypeRecord) {
           console.error("Failed to fetch updated hype record");
+          setTransactionStatus('Warning: Transaction successful but failed to update balance');
           return;
         }
 
@@ -124,6 +156,7 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
         const postPool = await getPostPoolAccount(walletCtx, new PublicKey(post.creator), post.id);
         if (!postPool) {
           console.log("No post pool PDA found");
+          setTransactionStatus('Warning: Transaction successful but failed to update pool data');
           return;
         }
 
@@ -139,30 +172,43 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
           creator: post.creator,
           hypePrice: price,
           reservedSol: postPool.reservedSol.toNumber(),
+          reservedHype: postPool.reservedHype.toNumber(),
           totalHype: postPool.totalHype.toNumber(),
           userHypeBalance: hypeRecord.amount.toNumber()
         }
 
         setPost(postDetails);
+        
+        // Refresh the posts in the global context
+        await refreshPosts();
+        setTransactionStatus('Purchase completed successfully!');
       } else if (orderType === 'sell') {
         // Execute sell/unhypePost logic here
         const slippage = 0.005; // 0.5% slippage tolerance
         const minSolToReceive = parseFloat(toAmount) * (1 - slippage);
         
-        const unhypePostRes = await unhypePost(walletCtx, new PublicKey(post.creator), post.id, parseFloat(toAmount), minSolToReceive);
+        setTransactionStatus('Sending transaction...');
+
+        const unhypePostRes = await unhypePost(walletCtx, new PublicKey(post.creator), post.id, parseFloat(fromAmount)*1e6, minSolToReceive*LAMPORTS_PER_SOL);
         console.log("Unhype Post Result: ", unhypePostRes);
 
-        if (!unhypePostRes) {
-          console.error("Unhype post transaction failed");
+        if (!unhypePostRes.success) {
+          console.error("Unhype post transaction failed:", unhypePostRes.error);
+          setTransactionStatus(`Transaction failed: ${unhypePostRes.error}`);
           return;
         }
 
         console.log("Unhype post transaction successful");
+        setTransactionStatus('Transaction confirmed! Updating data...');
+
+        // Add a small delay before fetching updated data
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const hypeRecord = await getUserHypeRecord(walletCtx, new PublicKey(post.creator), post.id);
 
         if (!hypeRecord) {
           console.error("Failed to fetch updated hype record");
+          setTransactionStatus('Warning: Transaction successful but failed to update balance');
           return;
         }
 
@@ -171,6 +217,7 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
         const postPool = await getPostPoolAccount(walletCtx, new PublicKey(post.creator), post.id);
         if (!postPool) {
           console.log("No post pool PDA found");
+          setTransactionStatus('Warning: Transaction successful but failed to update pool data');
           return;
         }
 
@@ -186,21 +233,32 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
           creator: post.creator,
           hypePrice: price,
           reservedSol: postPool.reservedSol.toNumber(),
+          reservedHype: postPool.reservedHype.toNumber(),
           totalHype: postPool.totalHype.toNumber(),
           userHypeBalance: hypeRecord.amount.toNumber()
         }
 
         setPost(postDetails);
+        
+        // Refresh the posts in the global context
+        await refreshPosts();
+        setTransactionStatus('Sale completed successfully!');
       } else {
         console.error("Invalid trade type");
+        setTransactionStatus('Error: Invalid trade type');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Trade failed: ", error);
+      setTransactionStatus(`Error: ${error.message || 'Unknown error occurred'}`);
     } finally {
-      setIsProcessing(false);
-      onOpenChange(false);
-      setFromAmount('');
-      setToAmount('');
+      // Keep the status visible for a few seconds before clearing
+      setTimeout(() => {
+        setIsProcessing(false);
+        setTransactionStatus('');
+        onOpenChange(false);
+        setFromAmount('');
+        setToAmount('');
+      }, 3000);
     }
   };
 
@@ -208,7 +266,7 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
   const estimatedFee = fromAmount ? (parseFloat(fromAmount) * 0.01).toFixed(4) : '0.0000';
   const slippage = '0.5';
 
-  const fetchSolBalance = async () => {
+  const fetchSolBalance = useCallback(async () => {
     if (!walletCtx.publicKey) return;
     
     try {
@@ -217,15 +275,15 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
     } catch (error) {
       console.error("Failed to fetch SOL balance: ", error);
     }
-  };
+  }, [walletCtx.publicKey, connection]);
 
   useEffect(() => {
     fetchSolBalance();
-  }, [walletCtx.publicKey, connection, open]);
+  }, [fetchSolBalance, open]);
 
   useEffect(() => {
     getChartData();
-  }, [walletCtx.connected, open]);
+  }, [getChartData, open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -250,7 +308,7 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-cyan-400">{(post.hypePrice/1e6).toFixed(9)}</p>
+                  <p className="text-2xl font-bold text-cyan-400">{(post.hypePrice).toFixed(9)}</p>
                   <Badge
                     variant="outline"
                     className={`${priceChange >= 0 ? 'border-green-500/50 text-green-400' : 'border-red-500/50 text-red-400'}`}
@@ -372,8 +430,14 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
                     disabled={isProcessing || !fromAmount || parseFloat(fromAmount) <= 0}
                     className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 neon-glow-green font-bold text-lg h-14"
                   >
-                    {isProcessing ? 'Processing...' : 'Buy Hype'}
+                    {isProcessing ? transactionStatus || 'Processing...' : 'Buy Hype'}
                   </Button>
+
+                  {transactionStatus && (
+                    <div className="mt-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                      <p className="text-sm text-blue-400 text-center">{transactionStatus}</p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="sell" className="space-y-4 mt-0">
@@ -415,9 +479,13 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
                           variant="outline"
                           onClick={() => {
                             const balance = post.userHypeBalance || 0;
-                            const amount = (balance * parseFloat(percent)) / 100;
-                            setFromAmount(amount.toFixed(2));
-                            setToAmount((amount * post.hypePrice).toFixed(4));
+                            const amount = (balance/1e6 * parseFloat(percent)) / 100;
+                            setFromAmount(amount.toFixed(6));
+                            const ammConstant = post.reservedHype * post.reservedSol;
+                            const newReservedHype = post.reservedHype + (amount*1e6);
+                            const newReservedSol = ammConstant / newReservedHype;
+                            const solAmount = (post.reservedSol-newReservedSol)/LAMPORTS_PER_SOL;
+                            setToAmount(solAmount.toFixed(9));
                           }}
                           className="flex-1 h-8 text-xs border-border/50 hover:border-pink-500/50 hover:bg-pink-500/10"
                         >
@@ -476,8 +544,14 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
                     disabled={isProcessing || !fromAmount || parseFloat(fromAmount) <= 0 || parseFloat(fromAmount) > (post.userHypeBalance || 0)}
                     className="w-full bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 neon-glow-pink font-bold text-lg h-14"
                   >
-                    {isProcessing ? 'Processing...' : 'Sell Hype'}
+                    {isProcessing ? transactionStatus || 'Processing...' : 'Sell Hype'}
                   </Button>
+
+                  {transactionStatus && (
+                    <div className="mt-2 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+                      <p className="text-sm text-blue-400 text-center">{transactionStatus}</p>
+                    </div>
+                  )}
                 </TabsContent>
               </Tabs>
 

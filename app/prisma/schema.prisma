@@ -13,6 +13,11 @@ enum EventType {
   UNHYPE
 }
 
+enum OrderType {
+  BUY
+  SELL
+}
+
 model Post {
   id          Int      @id @default(autoincrement())
   userPubKey  String
@@ -20,6 +25,7 @@ model Post {
   content     String
   publishedAt DateTime @default(now())
   events      Event[]
+  orders      Orders[]
 }
 
 model Event {
@@ -32,4 +38,16 @@ model Event {
   price      Float
   totalCost  Float
   timestamp  DateTime
+}
+
+model Orders {
+  id          Int      @id @default(autoincrement())
+  userPubKey  String
+  postId      Int
+  post        Post     @relation(fields: [postId], references: [id])
+  orderType   OrderType
+  amount      Int
+  price       Float
+  totalCost   Float
+  createdAt   DateTime @default(now())
 }

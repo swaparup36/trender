@@ -12,10 +12,12 @@ import axios from 'axios';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { initializePost } from '@/utils/smartcontractHandlers';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { usePosts } from '@/contexts/PostsContext';
 
 export default function CreatePost() {
   const walletCtx = useWallet();
   const router = useRouter();
+  const { refreshPosts } = usePosts();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [initialDeposit, setInitialDeposit] = useState('');
@@ -51,6 +53,9 @@ export default function CreatePost() {
         console.error("Error while initialize the post on chain");
         return;
       }
+
+      // Refresh the posts list
+      await refreshPosts();
 
       router.push('/');
     } catch (error) {

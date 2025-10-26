@@ -260,6 +260,143 @@ describe("trender", () => {
     );
   });
 
+  it("a user buys two times, hype records accumulate", async () => {
+    const creator = anchor.web3.Keypair.generate();
+    const postId = 20;
+    const depositedSol = new anchor.BN(Math.floor(1.0 * anchor.web3.LAMPORTS_PER_SOL));
+
+    // Fund creator with enough SOL for initialization and multiple purchases
+    const sig = await provider.connection.requestAirdrop(creator.publicKey, 3 * anchor.web3.LAMPORTS_PER_SOL);
+    await provider.connection.confirmTransaction(sig);
+
+    // Derive PDAs
+    const [postPoolPda] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from("post"),
+        creator.publicKey.toBuffer(),
+        new anchor.BN(postId).toArrayLike(Buffer, "le", 8)
+      ],
+      program.programId
+    );
+
+    const [postVaultPda] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from("vault"),
+        creator.publicKey.toBuffer(),
+        new anchor.BN(postId).toArrayLike(Buffer, "le", 8)
+      ],
+      program.programId
+    );
+
+    const [hypeRecordPda] = await anchor.web3.PublicKey.findProgramAddress(
+      [
+        Buffer.from("hype_record"),
+        creator.publicKey.toBuffer(),
+        postPoolPda.toBuffer()
+      ],
+      program.programId
+    );
+
+    const [treasuryPda] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("treasury")],
+      program.programId
+    );
+
+    // Initialize post
+    await program.methods
+      .initializePost(new anchor.BN(postId), depositedSol)
+      .accounts({
+        creator: creator.publicKey,
+        postPool: postPoolPda,
+        postVault: postVaultPda,
+        treasury: treasuryPda,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([creator])
+      .rpc();
+
+    // First purchase
+    const firstAmount = new anchor.BN(2_000_000); // 2 HYPE
+    const postPoolBefore = await program.account.postPool.fetch(postPoolPda);
+    const reserveSol1 = new anchor.BN(postPoolBefore.reservedSol.toString());
+    const reserveHype1 = new anchor.BN(postPoolBefore.reservedHype.toString());
+    const firstPrice = ammPrice(reserveSol1, reserveHype1, firstAmount);
+    const maxAcceptablePrice1 = firstPrice.mul(new anchor.BN(105)).div(new anchor.BN(100));
+
+    await program.methods
+      .hype(firstAmount, new anchor.BN(postId), maxAcceptablePrice1)
+      .accounts({
+        buyer: creator.publicKey,
+        postPool: postPoolPda,
+        postVault: postVaultPda,
+        hypeRecord: hypeRecordPda,
+        treasury: treasuryPda,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([creator])
+      .rpc();
+
+    // Verify first purchase
+    let hypeRecord = await program.account.hypeRecord.fetch(hypeRecordPda);
+    assert.strictEqual(
+      hypeRecord.amount.toString(),
+      firstAmount.toString(),
+      "First purchase: hype record should match first amount"
+    );
+
+    // Second purchase
+    const secondAmount = new anchor.BN(3_000_000); // 3 HYPE
+    const postPoolMid = await program.account.postPool.fetch(postPoolPda);
+    const reserveSol2 = new anchor.BN(postPoolMid.reservedSol.toString());
+    const reserveHype2 = new anchor.BN(postPoolMid.reservedHype.toString());
+    const secondPrice = ammPrice(reserveSol2, reserveHype2, secondAmount);
+    const maxAcceptablePrice2 = secondPrice.mul(new anchor.BN(105)).div(new anchor.BN(100));
+
+    await program.methods
+      .hype(secondAmount, new anchor.BN(postId), maxAcceptablePrice2)
+      .accounts({
+        buyer: creator.publicKey,
+        postPool: postPoolPda,
+        postVault: postVaultPda,
+        hypeRecord: hypeRecordPda,
+        treasury: treasuryPda,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .signers([creator])
+      .rpc();
+
+    // Verify accumulated hype records
+    hypeRecord = await program.account.hypeRecord.fetch(hypeRecordPda);
+    const expectedTotal = firstAmount.add(secondAmount);
+    
+    // This is what should happen when the contract is fixed:
+    assert.strictEqual(
+      hypeRecord.amount.toString(),
+      expectedTotal.toString(),
+      "Second purchase: hype record should accumulate both amounts"
+    );
+
+    // Verify post pool state
+    const postPoolAfter = await program.account.postPool.fetch(postPoolPda);
+    const totalPurchased = firstAmount.add(secondAmount);
+    
+    // Total hype should have increased by the purchased amounts (this still works correctly)
+    const expectedTotalHype = new anchor.BN(postPoolBefore.totalHype.toString()).add(totalPurchased);
+    assert.strictEqual(
+      postPoolAfter.totalHype.toString(),
+      expectedTotalHype.toString(),
+      "Total hype should increase by total purchased amount"
+    );
+
+    // Reserved hype should have decreased by the purchased amounts (this still works correctly)
+    const expectedReservedHype = new anchor.BN(postPoolBefore.reservedHype.toString()).sub(totalPurchased);
+    assert.strictEqual(
+      postPoolAfter.reservedHype.toString(),
+      expectedReservedHype.toString(),
+      "Reserved hype should decrease by total purchased amount"
+    );
+  })
+
   it("buy then sell hype preserves AMM (within rounding)", async () => {
     const creator = anchor.web3.Keypair.generate();
     const postId = 13;

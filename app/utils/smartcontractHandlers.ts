@@ -2,13 +2,14 @@ import * as anchor from "@coral-xyz/anchor";
 import { WalletContextState } from "@solana/wallet-adapter-react";
 import { getAnchorClient } from "./anchorClient";
 import { PublicKey } from "@solana/web3.js";
+import { executeTransactionSafely, TransactionError } from "./transactionHelpers";
 
 export async function initializePost(wallet: WalletContextState, depositLamports: number, postId: number) {
     const { program, provider } = getAnchorClient(wallet);
-
+    
     if (!wallet.publicKey) {
         console.error("Wallet not connected");
-        return;
+        return { success: false, error: "Wallet not connected" };
     }
 
     try {
@@ -36,35 +37,42 @@ export async function initializePost(wallet: WalletContextState, depositLamports
             program.programId
         );
 
-        // Create the transaction to initialize the post ans sign it
-        const tx = await program.methods
-            .initializePost(new anchor.BN(postId), new anchor.BN(depositLamports))
-            .accounts({
-                creator: wallet.publicKey,
-                postPool: postPoolPda,
-                postVault: postVaultPda,
-                treasury: treasuryPda,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            })
-            .rpc();
-    
-        // Confirm the transaction
-        const latestBlockhash = await provider.connection.getLatestBlockhash();
-        const confirmation = await provider.connection.confirmTransaction({
-            signature: tx,
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        }, "confirmed");
+        // Execute transaction safely
+        const result = await executeTransactionSafely(
+            async () => {
+                return await program.methods
+                    .initializePost(new anchor.BN(postId), new anchor.BN(depositLamports))
+                    .accounts({
+                        creator: wallet.publicKey!,
+                        postPool: postPoolPda,
+                        postVault: postVaultPda,
+                        treasury: treasuryPda,
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .rpc({
+                        skipPreflight: false,
+                        preflightCommitment: 'confirmed',
+                        commitment: 'confirmed'
+                    });
+            },
+            provider.connection,
+            wallet,
+            { maxRetries: 3, timeout: 60000 }
+        );
 
-        if (confirmation.value.err) {
-            throw new Error(`Transaction failed: ${confirmation.value.err}`);
+        if (result.success) {
+            console.log("Initialize post transaction successful:", result.signature);
+            return { success: true, signature: result.signature };
+        } else {
+            console.error("Initialize post transaction failed:", result.error);
+            return { success: false, error: result.error };
         }
-
-        console.log("Transaction successful:", tx);
-        return true;
-    } catch (err) {
-        console.error("Transaction failed:", err);
-        return;
+    } catch (error: any) {
+        console.error("Initialize post failed:", error);
+        return { 
+            success: false, 
+            error: error.message || "Unknown error occurred" 
+        };
     }
 }
 
@@ -94,6 +102,8 @@ export async function getPostPoolAccount(wallet: WalletContextState, postCreator
         // Fetch the account data
         const postPool = await (program.account as any).postPool.fetch(postPoolPda);
 
+        console.log("postPool found: ", postPool.reservedHype.toNumber(), postPool.reservedSol.toNumber());
+
         return postPool;
     } catch (error) {
         console.error("Failed to fetch post pool account:", error);
@@ -103,10 +113,10 @@ export async function getPostPoolAccount(wallet: WalletContextState, postCreator
 
 export async function hypePost(wallet: WalletContextState, postCreator: PublicKey, postId: number, hypeAmount: number, maxAcceptablePrice: number) {
     const { program, provider } = getAnchorClient(wallet);
-
+    
     if (!wallet.publicKey) {
         console.error("Wallet not connected");
-        return;
+        return { success: false, error: "Wallet not connected" };
     }
 
     try {
@@ -142,35 +152,46 @@ export async function hypePost(wallet: WalletContextState, postCreator: PublicKe
             program.programId
         );
 
-        const tx = await program.methods
-            .hype(new anchor.BN(hypeAmount), new anchor.BN(postId), new anchor.BN(maxAcceptablePrice))
-            .accounts({
-                buyer: wallet.publicKey,
-                postPool: postPoolPda,
-                postVault: postVaultPda,
-                hypeRecord: userHypeRecordPda,
-                treasury: treasuryPda,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            })
-            .rpc();
-            
-        // Confirm the transaction
-        const latestBlockhash = await provider.connection.getLatestBlockhash();
-        const confirmation = await provider.connection.confirmTransaction({
-            signature: tx,
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        }, "confirmed");
+        console.log("Hype amount: ", hypeAmount);
+        console.log("Max acceptable price: ", Math.floor(maxAcceptablePrice));
 
-        if (confirmation.value.err) {
-            throw new Error(`Transaction failed: ${confirmation.value.err}`);
+        // Execute transaction safely
+        const result = await executeTransactionSafely(
+            async () => {
+                return await program.methods
+                    .hype(new anchor.BN(hypeAmount), new anchor.BN(postId), new anchor.BN(Math.floor(maxAcceptablePrice)))
+                    .accounts({
+                        buyer: wallet.publicKey!,
+                        postPool: postPoolPda,
+                        postVault: postVaultPda,
+                        hypeRecord: userHypeRecordPda,
+                        treasury: treasuryPda,
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .rpc({
+                        skipPreflight: false,
+                        preflightCommitment: 'confirmed',
+                        commitment: 'confirmed'
+                    });
+            },
+            provider.connection,
+            wallet,
+            { maxRetries: 3, timeout: 60000 }
+        );
+
+        if (result.success) {
+            console.log("Hype post transaction successful:", result.signature);
+            return { success: true, signature: result.signature };
+        } else {
+            console.error("Hype post transaction failed:", result.error);
+            return { success: false, error: result.error };
         }
-
-        console.log("Transaction successful:", tx);
-        return true;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to hype post: ", error);
-        return;
+        return { 
+            success: false, 
+            error: error.message || "Unknown error occurred" 
+        };
     }
 }
 
@@ -218,7 +239,7 @@ export async function unhypePost(wallet: WalletContextState, postCreator: Public
 
     if (!wallet.publicKey) {
         console.error("Wallet not connected");
-        return;
+        return { success: false, error: "Wallet not connected" };
     }
 
     try {
@@ -254,35 +275,46 @@ export async function unhypePost(wallet: WalletContextState, postCreator: Public
             program.programId
         );
 
-        const tx = await program.methods
-            .unhype(new anchor.BN(sellAmount), new anchor.BN(postId), new anchor.BN(minAcceptableRefund))
-            .accounts({
-                user: wallet.publicKey,
-                postPool: postPoolPda,
-                postVault: postVaultPda,
-                hypeRecord: userHypeRecordPda,
-                treasury: treasuryPda,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            })
-            .rpc();
+        console.log("Min SOL to receive: ", Math.floor(minAcceptableRefund));
+        console.log("Hype to sell: ", sellAmount);
 
-        // Confirm the transaction
-        const latestBlockhash = await provider.connection.getLatestBlockhash();
-        const confirmation = await provider.connection.confirmTransaction({
-            signature: tx,
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        }, "confirmed");
+        // Execute transaction safely
+        const result = await executeTransactionSafely(
+            async () => {
+                return await program.methods
+                    .unhype(new anchor.BN(sellAmount), new anchor.BN(postId), new anchor.BN(Math.floor(minAcceptableRefund)))
+                    .accounts({
+                        user: wallet.publicKey!,
+                        postPool: postPoolPda,
+                        postVault: postVaultPda,
+                        hypeRecord: userHypeRecordPda,
+                        treasury: treasuryPda,
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .rpc({
+                        skipPreflight: false,
+                        preflightCommitment: 'confirmed',
+                        commitment: 'confirmed'
+                    });
+            },
+            provider.connection,
+            wallet,
+            { maxRetries: 3, timeout: 60000 }
+        );
 
-        if (confirmation.value.err) {
-            throw new Error(`Transaction failed: ${confirmation.value.err}`);
+        if (result.success) {
+            console.log("Unhype post transaction successful:", result.signature);
+            return { success: true, signature: result.signature };
+        } else {
+            console.error("Unhype post transaction failed:", result.error);
+            return { success: false, error: result.error };
         }
-
-        console.log("Transaction successful:", tx);
-        return {};
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to unhype post: ", error);
-        return;
+        return { 
+            success: false, 
+            error: error.message || "Unknown error occurred" 
+        };
     }
 }
 

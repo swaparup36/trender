@@ -5,130 +5,12 @@ import { PostCard } from '@/components/post-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Flame } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import axios from 'axios';
-import { PostType } from '@/types/types';
-import { getPostPoolAccount, getUserHypeRecord } from '@/utils/smartcontractHandlers';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
-
-// const mockPosts = [
-//   {
-//     id: '1',
-//     title: 'The Future of Solana NFTs',
-//     description: 'Exploring the next generation of NFT technology on Solana. Join the hype train and support innovation!',
-//     creator: '7xKXtG...9sYpQ',
-//     solLocked: 15.5,
-//     hypePrice: 0.0234,
-//     totalHype: 1250,
-//     userHypeBalance: 50,
-//   },
-//   {
-//     id: '2',
-//     title: 'DeFi Revolution 2024',
-//     description: 'Breaking down the latest DeFi protocols that are changing the game. The future is here!',
-//     creator: '4mNpKr...3fTwX',
-//     solLocked: 28.3,
-//     hypePrice: 0.0456,
-//     totalHype: 2150,
-//     userHypeBalance: 0,
-//   },
-//   {
-//     id: '3',
-//     title: 'Building on Solana: A Guide',
-//     description: 'Complete guide to building high-performance dApps on Solana. From zero to hero!',
-//     creator: '9wQzLs...7hPmK',
-//     solLocked: 42.7,
-//     hypePrice: 0.0789,
-//     totalHype: 3420,
-//     userHypeBalance: 120,
-//   },
-//   {
-//     id: '4',
-//     title: 'Web3 Gaming Takes Off',
-//     description: 'The gaming industry is being revolutionized by Web3. Here\'s what you need to know.',
-//     creator: '5xYzMn...2kRqP',
-//     solLocked: 18.9,
-//     hypePrice: 0.0312,
-//     totalHype: 1680,
-//     userHypeBalance: 25,
-//   },
-//   {
-//     id: '5',
-//     title: 'Metaverse Real Estate',
-//     description: 'Investing in virtual land is becoming more lucrative. Don\'t miss this opportunity!',
-//     creator: '8nTpVx...4cWmL',
-//     solLocked: 35.2,
-//     hypePrice: 0.0567,
-//     totalHype: 2890,
-//     userHypeBalance: 0,
-//   },
-//   {
-//     id: '6',
-//     title: 'DAO Governance Best Practices',
-//     description: 'How to build and manage successful DAOs. Learn from the best in the industry.',
-//     creator: '3kPzWq...6fNhJ',
-//     solLocked: 21.4,
-//     hypePrice: 0.0398,
-//     totalHype: 1920,
-//     userHypeBalance: 75,
-//   },
-// ];
+import { useState } from 'react';
+import { usePosts } from '@/contexts/PostsContext';
 
 export default function Home() {
-  const walletCtx = useWallet();
-  const [allPosts, setAllPosts] = useState<PostType[]>([]);
+  const { allPosts, isLoading, error } = usePosts();
   const [searchQuery, setSearchQuery] = useState('');
-
-  const getAllPosts = async () => {
-    try {
-      const getAllPostsRes = await axios.get('/api/post/get-all');
-
-      if (getAllPostsRes.status !== 200) {
-        console.error("Error getting all posts: ", getAllPostsRes.data.message)
-      }
-
-      let allPosts: PostType[] = [];
-      for (let post of getAllPostsRes.data.allPosts) {
-        const postPool = await getPostPoolAccount(walletCtx, new PublicKey(post.userPubKey), post.id);
-        if (!postPool) {
-          console.log("No post pool PDA found");
-          continue;
-        }
-
-        const hypeRecord = await getUserHypeRecord(walletCtx, new PublicKey(post.userPubKey), post.id);
-        // if (!hypeRecord) {
-        //   console.log("No hype record PDA found");
-        //   continue;
-        // }
-
-        const ammConstant = postPool.reservedHype.toNumber() * postPool.reservedSol.toNumber();
-        const newReservedHype = postPool.reservedHype.toNumber() - 10000;
-        const newReservedSol = ammConstant/newReservedHype;
-        const price = newReservedSol - postPool.reservedSol.toNumber();
-
-        let postDetails: PostType = {
-          id: post.id,
-          title: post.title,
-          content: post.content,
-          creator: post.userPubKey,
-          hypePrice: price,
-          reservedSol: postPool.reservedSol.toNumber(),
-          totalHype: postPool.totalHype.toNumber(),
-          userHypeBalance: hypeRecord ? hypeRecord.amount.toNumber() : 0
-        }
-
-        console.log("post to push: ", postDetails);
-
-        allPosts.push(postDetails);
-      }
-
-      setAllPosts(allPosts);
-    } catch (error) {
-      console.error("Unable to get all the posts");
-      return;
-    }
-  }
 
   const filteredPosts = allPosts.filter(
     post =>
@@ -138,10 +20,6 @@ export default function Home() {
 
   const totalVolume = allPosts.reduce((sum, post) => sum + post.reservedSol, 0);
   const totalHype = allPosts.reduce((sum, post) => sum + post.totalHype, 0);
-
-  useEffect(() => {
-    getAllPosts();
-  }, [walletCtx.connected]);
 
   return (
     <main className="min-h-screen">
@@ -199,12 +77,22 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPosts.map((post) => (
-              <PostCard key={post.id} {...post} />
-            ))}
+            {isLoading ? (
+              <div className="col-span-full text-center py-12">
+                <p className="text-muted-foreground">Loading posts...</p>
+              </div>
+            ) : error ? (
+              <div className="col-span-full text-center py-12">
+                <p className="text-red-400">Error: {error}</p>
+              </div>
+            ) : (
+              filteredPosts.map((post) => (
+                <PostCard key={post.id} {...post} />
+              ))
+            )}
           </div>
 
-          {filteredPosts.length === 0 && (
+          {!isLoading && !error && filteredPosts.length === 0 && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No posts found matching your search.</p>
             </div>

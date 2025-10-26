@@ -6,6 +6,7 @@ const prismaClient = new PrismaClient();
 export async function POST(req: NextRequest) {
   const body = await req.json();
   try {
+    console.log("body: ", body);
     for (const event of body) {
       const logs = event.logs || [];
 

@@ -28,11 +28,11 @@ export async function POST(req: NextRequest){
         });
     } catch (error) {
         const err = error as Error;
-        console.log('redis err: ', err.message);
+        console.log('post creation err: ', err.message);
 
         return NextResponse.json({
             success: false,
-            message: 'error occured redis',
+            message: 'error occured on post creation',
         }, { status: 500 });
     }
 }

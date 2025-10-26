@@ -9,10 +9,14 @@ const PROGRAM_ID = new PublicKey("9ZFKHrBrA2YC19eLvuCM4kjabjXFqphYJs8PxgeeSG7S")
 export type TrenderProgram = Program<Idl>;
 
 export function getAnchorClient(wallet: any) {
-  const connection = new Connection("https://api.devnet.solana.com", "processed");
+  const connection = new Connection("https://api.devnet.solana.com", {
+    commitment: "confirmed",
+    confirmTransactionInitialTimeout: 60000,
+  });
 
   const provider = new AnchorProvider(connection, wallet, {
-    preflightCommitment: "processed",
+    preflightCommitment: "confirmed",
+    commitment: "confirmed",
   });
 
   // Create IDL object ensuring address is explicitly set
