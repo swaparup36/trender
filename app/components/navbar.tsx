@@ -31,7 +31,7 @@ export function Navbar() {
               <Flame className="h-6 w-6 text-white" />
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-pink-400 to-green-400 bg-clip-text text-transparent">
-              FAN WAR
+              TRENDER
             </span>
           </Link>
 

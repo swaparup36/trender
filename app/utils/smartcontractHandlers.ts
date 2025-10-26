@@ -323,16 +323,16 @@ export async function creatorReleaseHype(wallet: WalletContextState, postCreator
 
     if (!wallet.publicKey) {
         console.error("Wallet not connected");
-        return;
+        return { success: false, error: "Wallet not connected" };
     }
 
-    if (wallet.publicKey !== postCreator) {
+    if (wallet.publicKey.toBase58() !== postCreator.toBase58()) {
         console.error("Only the post creator can release hype");
-        return;
+        return { success: false, error: "Only the post creator can release hype" };
     }
 
     try {
-        const [postPoolPda, bump] = await anchor.web3.PublicKey.findProgramAddress(
+        const [postPoolPda] = await anchor.web3.PublicKey.findProgramAddress(
             [
                 Buffer.from("post"),
                 wallet.publicKey.toBuffer(),
@@ -341,7 +341,7 @@ export async function creatorReleaseHype(wallet: WalletContextState, postCreator
             program.programId
         );
 
-        const [postVaultPda, postVaultBump] = await anchor.web3.PublicKey.findProgramAddress(
+        const [postVaultPda] = await anchor.web3.PublicKey.findProgramAddress(
             [
                 Buffer.from("vault"),
                 wallet.publicKey.toBuffer(),
@@ -350,33 +350,44 @@ export async function creatorReleaseHype(wallet: WalletContextState, postCreator
             program.programId
         );
 
-        const tx = await program.methods
-            .creatorReleaseHype(new anchor.BN(releaseAmount), new anchor.BN(postId))
-            .accounts({
-                user: wallet.publicKey,
-                postPool: postPoolPda,
-                postVault: postVaultPda,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            })
-            .rpc();
+        console.log("Release amount: ", releaseAmount);
+        console.log("Post ID: ", postId);
 
-        // Confirm the transaction
-        const latestBlockhash = await provider.connection.getLatestBlockhash();
-        const confirmation = await provider.connection.confirmTransaction({
-            signature: tx,
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        }, "confirmed");
+        // Execute transaction safely
+        const result = await executeTransactionSafely(
+            async () => {
+                return await program.methods
+                    .creatorReleaseHype(new anchor.BN(releaseAmount), new anchor.BN(postId))
+                    .accounts({
+                        user: wallet.publicKey!,
+                        postPool: postPoolPda,
+                        postVault: postVaultPda,
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .rpc({
+                        skipPreflight: false,
+                        preflightCommitment: 'confirmed',
+                        commitment: 'confirmed'
+                    });
+            },
+            provider.connection,
+            wallet,
+            { maxRetries: 3, timeout: 60000 }
+        );
 
-        if (confirmation.value.err) {
-            throw new Error(`Transaction failed: ${confirmation.value.err}`);
+        if (result.success) {
+            console.log("Creator release hype transaction successful:", result.signature);
+            return { success: true, signature: result.signature };
+        } else {
+            console.error("Creator release hype transaction failed:", result.error);
+            return { success: false, error: result.error };
         }
-
-        console.log("Transaction successful:", tx);
-        return true;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to release hype: ", error);
-        return;
+        return { 
+            success: false, 
+            error: error.message || "Unknown error occurred" 
+        };
     }
 }
 
