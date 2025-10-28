@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 declare_id!("9ZFKHrBrA2YC19eLvuCM4kjabjXFqphYJs8PxgeeSG7S");
 
+const MIN_SOL_RESERVE: u128 = 100_000_000; // 0.1 SOL
 const MIN_SOL_DEPOSIT: u128 = 1_000_000; // 0.001 SOL
 const MIN_HYPE_TO_BUY: u128 = 1_000_000; // 1 HYPE
 const MIN_HYPE_TO_SELL: u128 = 1_000_000; // 1 HYPE
@@ -26,6 +27,7 @@ pub mod trender {
 
     pub fn initialize_post(ctx: Context<InitializePost>, post_id: u64, deposited_sol: u128) -> Result<()> {
         require!(deposited_sol > 0, TrenderError::InvalidDepositAmount);
+        require!(deposited_sol >= MIN_SOL_RESERVE, TrenderError::InvalidDepositAmount);
 
         let deposited_sol_u64: u64 = deposited_sol.try_into().map_err(|_| error!(TrenderError::AmountTooLarge))?;
 

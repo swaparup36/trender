@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Search, Flame } from 'lucide-react';
 import { useState } from 'react';
 import { usePosts } from '@/contexts/PostsContext';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
   const { allPosts, isLoading, error } = usePosts();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -48,6 +50,7 @@ export default function Home() {
               size="lg"
               variant="outline"
               className="border-cyan-500/50 hover:bg-cyan-500/10 font-bold text-lg px-8"
+              onClick={() => router.push('/create')}
             >
               Create Post
             </Button>
@@ -57,7 +60,6 @@ export default function Home() {
         <StatsBar
           totalPosts={allPosts.length}
           totalVolume={totalVolume}
-          activeUsers={1234}
           totalHype={totalHype}
         />
 

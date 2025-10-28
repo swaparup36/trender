@@ -4,18 +4,16 @@ import { TrendingUp, Coins, Flame, DollarSign } from 'lucide-react';
 interface StatsBarProps {
   totalPosts?: number;
   totalVolume?: number;
-  activeUsers?: number;
   totalHype?: number;
 }
 
 export function StatsBar({
   totalPosts = 0,
   totalVolume = 0,
-  activeUsers = 0,
   totalHype = 0,
 }: StatsBarProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <Card className="p-4 border-cyan-500/30 bg-card/50 backdrop-blur-sm hover:neon-glow transition-all">
         <div className="flex items-center justify-between">
           <div>
@@ -36,18 +34,6 @@ export function StatsBar({
           </div>
           <div className="p-3 rounded-lg bg-pink-500/10">
             <DollarSign className="h-6 w-6 text-pink-400" />
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-4 border-green-500/30 bg-card/50 backdrop-blur-sm hover:neon-glow-green transition-all">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Active Users</p>
-            <p className="text-2xl font-bold text-green-400">{activeUsers}</p>
-          </div>
-          <div className="p-3 rounded-lg bg-green-500/10">
-            <TrendingUp className="h-6 w-6 text-green-400" />
           </div>
         </div>
       </Card>

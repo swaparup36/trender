@@ -3,8 +3,12 @@
 import Link from 'next/link';
 import { Flame } from 'lucide-react';
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { useWallet } from '@solana/wallet-adapter-react';
+import { isAdmin } from '@/lib/config';
 
 export function Navbar() {
+  const walletCtx = useWallet();
+  
   const walletBtnStyle: React.CSSProperties = {
     padding: '0.75rem 2rem',
     borderRadius: '9999px',
@@ -45,6 +49,11 @@ export function Navbar() {
             <Link href="/dashboard" className="text-sm font-medium hover:text-green-400 transition-colors">
               Dashboard
             </Link>
+            {walletCtx.connected && walletCtx.publicKey && isAdmin(walletCtx.publicKey.toBase58()) && (
+              <Link href="/admin" className="text-sm font-medium hover:text-orange-400 transition-colors">
+                Admin
+              </Link>
+            )}
 
             <WalletMultiButton
               style={walletBtnStyle}

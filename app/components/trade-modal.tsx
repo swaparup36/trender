@@ -37,24 +37,26 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
   const [solBalance, setSolBalance] = useState<number>(0);
 
   const getChartData = useCallback(async () => {
+    if (!open) return; // Don't fetch if modal is closed
+    
     try {
       const response = await axios.get(`/api/trades/get-data`, {
         params: {
           postId: post.id
         }
       });
+
+      console.log("get chart data response: ", response.data);
       if (!response.data.success) {
         console.error("Failed to fetch chart data");
         return;
       }
 
-      console.log("chart Data: ", chartData);
-
-      setChartData(response.data.eventLogs);
+      setChartData(response.data.chartData);
     } catch (error) {
       console.error("Failed to fetch event logs: ", error);
     }
-  }, [post.id, chartData]);
+  }, [post.id, open]);
 
   const priceChange = useMemo(() => {
     // Calculate price change over the last interval
@@ -262,7 +264,6 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
     }
   };
 
-  // Calculate estimated fee and slippage --> fee is 1% of fromAmount
   const estimatedFee = fromAmount ? (parseFloat(fromAmount) * 0.01).toFixed(4) : '0.0000';
   const slippage = '0.5';
 
@@ -282,8 +283,14 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
   }, [fetchSolBalance, open]);
 
   useEffect(() => {
-    getChartData();
-  }, [getChartData, open]);
+    if (open) {
+      getChartData();
+    }
+    // Clear chart data when modal closes to prevent stale data
+    if (!open) {
+      setChartData([]);
+    }
+  }, [open, getChartData]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

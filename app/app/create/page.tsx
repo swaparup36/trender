@@ -27,6 +27,12 @@ export default function CreatePost() {
     e.preventDefault();
     setIsSubmitting(true);
 
+    if (parseFloat(initialDeposit) < 0.1) {
+      alert("Initial deposit must be at least 0.1 SOL");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       if (!walletCtx.publicKey) {
         console.error("Wallet not connected");
@@ -81,7 +87,7 @@ export default function CreatePost() {
             Create Your Post
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            Launch your content with initial SOL liquidity. Earn from every hype transaction!
+            Launch your content with initial SOL liquidity. Get a chance to be featured and earn extra hype!
           </p>
         </div>
 
@@ -211,7 +217,7 @@ export default function CreatePost() {
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• Your initial SOL deposit creates the liquidity pool</li>
                 <li>• Users can hype (buy) or unhype (sell) using bonding curve pricing</li>
-                <li>• You earn 2% fee on every transaction</li>
+                <li>• You get 10% hype extra on your account after creation that you can sell anytime</li>
                 <li>• The more hype your post gets, the higher the price goes</li>
               </ul>
             </div>

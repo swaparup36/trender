@@ -396,7 +396,7 @@ export async function withdrawTreasury(wallet: WalletContextState, amount: numbe
 
     if (!wallet.publicKey) {
         console.error("Wallet not connected");
-        return;
+        return { success: false, error: "Wallet not connected" };
     }
 
     try {
@@ -408,34 +408,43 @@ export async function withdrawTreasury(wallet: WalletContextState, amount: numbe
             [Buffer.from("treasury")],
             program.programId
         );
-        const tx = await program.methods
-            .withdrawTreasury(new anchor.BN(amount))
-            .accounts({
-                authority: wallet.publicKey,
-                config: configPda,
-                treasury: treasuryPda,
-                recipient: recipient,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            })
-            .rpc();
 
-        // Confirm the transaction
-        const latestBlockhash = await provider.connection.getLatestBlockhash();
-        const confirmation = await provider.connection.confirmTransaction({
-            signature: tx,
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        }, "confirmed");
+        // Execute transaction safely
+        const result = await executeTransactionSafely(
+            async () => {
+                return await program.methods
+                    .withdrawTreasury(new anchor.BN(amount))
+                    .accounts({
+                        authority: wallet.publicKey!,
+                        config: configPda,
+                        treasury: treasuryPda,
+                        recipient: recipient,
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .rpc({
+                        skipPreflight: false,
+                        preflightCommitment: 'confirmed',
+                        commitment: 'confirmed'
+                    });
+            },
+            provider.connection,
+            wallet,
+            { maxRetries: 3, timeout: 60000 }
+        );
 
-        if (confirmation.value.err) {
-            throw new Error(`Transaction failed: ${confirmation.value.err}`);
+        if (result.success) {
+            console.log("Withdraw treasury transaction successful:", result.signature);
+            return { success: true, signature: result.signature };
+        } else {
+            console.error("Withdraw treasury transaction failed:", result.error);
+            return { success: false, error: result.error };
         }
-
-        console.log("Transaction successful:", tx);
-        return true;
-    } catch (error) {
-        console.error("Failed to release hype: ", error);
-        return;
+    } catch (error: any) {
+        console.error("Failed to withdraw treasury: ", error);
+        return { 
+            success: false, 
+            error: error.message || "Unknown error occurred" 
+        };
     }
 }
 
@@ -444,39 +453,104 @@ export async function initiateTreasury(wallet: WalletContextState) {
 
     if (!wallet.publicKey) {
         console.error("Wallet not connected");
-        return;
+        return { success: false, error: "Wallet not connected" };
     }
 
     try {
         const [configPda] = await anchor.web3.PublicKey.findProgramAddress([Buffer.from("config")], program.programId);
         const [treasuryPda] = await anchor.web3.PublicKey.findProgramAddress([Buffer.from("treasury")], program.programId);
 
-        const tx = await program.methods
-            .initializeTreasury()
-            .accounts({
-                payer: wallet.publicKey,
-                config: configPda,
-                treasury: treasuryPda,
-                systemProgram: anchor.web3.SystemProgram.programId,
-            })
-            .rpc();
+        // Execute transaction safely
+        const result = await executeTransactionSafely(
+            async () => {
+                return await program.methods
+                    .initializeTreasury()
+                    .accounts({
+                        payer: wallet.publicKey!,
+                        config: configPda,
+                        treasury: treasuryPda,
+                        systemProgram: anchor.web3.SystemProgram.programId,
+                    })
+                    .rpc({
+                        skipPreflight: false,
+                        preflightCommitment: 'confirmed',
+                        commitment: 'confirmed'
+                    });
+            },
+            provider.connection,
+            wallet,
+            { maxRetries: 3, timeout: 60000 }
+        );
 
-        // Confirm the transaction
-        const latestBlockhash = await provider.connection.getLatestBlockhash();
-        const confirmation = await provider.connection.confirmTransaction({
-            signature: tx,
-            blockhash: latestBlockhash.blockhash,
-            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
-        }, "confirmed");
-
-        if (confirmation.value.err) {
-            throw new Error(`Transaction failed: ${confirmation.value.err}`);
+        if (result.success) {
+            console.log("Initialize treasury transaction successful:", result.signature);
+            return { success: true, signature: result.signature };
+        } else {
+            console.error("Initialize treasury transaction failed:", result.error);
+            return { success: false, error: result.error };
         }
-
-        console.log("Transaction successful:", tx);
-        return true;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to initiate treasury: ", error);
-        return;
+        return { 
+            success: false, 
+            error: error.message || "Unknown error occurred" 
+        };
+    }
+}
+
+export async function getConfigAccount(wallet: WalletContextState) {
+    const { program } = getAnchorClient(wallet);
+
+    if (!wallet.publicKey) {
+        console.error("Wallet not connected");
+        return false;
+    }
+
+    try {
+        const [configPda] = await anchor.web3.PublicKey.findProgramAddress(
+            [Buffer.from("config")],
+            program.programId
+        );
+        const [treasuryPda] = await anchor.web3.PublicKey.findProgramAddress(
+            [Buffer.from("treasury")],
+            program.programId
+        );
+        
+        const config = await (program.account as any).config.fetch(configPda);
+
+        console.log("config found: ", config.admin.toBase58(), config.bump);
+
+        return config;
+    } catch (error) {
+        console.error("Failed to check treasury initialization: ", error);
+        return false;
+    }
+}
+
+export async function getTreasuryBalance(wallet: WalletContextState) {
+    const { program, provider } = getAnchorClient(wallet);
+
+    if (!wallet.publicKey) {
+        console.error("Wallet not connected");
+        return null;
+    }
+
+    try {
+        const [treasuryPda] = await anchor.web3.PublicKey.findProgramAddress(
+            [Buffer.from("treasury")],
+            program.programId
+        );
+
+        const accountInfo = await provider.connection.getAccountInfo(treasuryPda);
+        if (accountInfo) {
+            console.log("Treasury balance: ", accountInfo.lamports);
+            return accountInfo.lamports;
+        } else {
+            console.log("Treasury account not found");
+            return null;
+        }
+    } catch (error) {
+        console.error("Failed to get treasury balance: ", error);
+        return null;
     }
 }

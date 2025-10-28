@@ -128,19 +128,50 @@ export async function POST(req: NextRequest) {
                 const timestamp = transaction.timestamp;
                 const userPubKey = transaction.feePayer;
                 
+                console.log("Looking for refund transfers for user:", userPubKey);
+                console.log("Available nativeTransfers:", transaction.nativeTransfers);
+                console.log("Available tokenTransfers:", transaction.tokenTransfers);
+                
                 // Find SOL transfers to estimate the actual refund
                 let totalRefund = 0;
                 if (transaction.nativeTransfers && transaction.nativeTransfers.length > 0) {
                   for (const transfer of transaction.nativeTransfers) {
+                    console.log("Checking native transfer:", transfer);
                     if (transfer.toUserAccount === userPubKey) {
                       totalRefund += transfer.amount;
+                      console.log("Found refund transfer:", transfer.amount);
                     }
                   }
+                }
+                
+                // Also check token transfers for potential refunds
+                if (totalRefund === 0 && transaction.tokenTransfers && transaction.tokenTransfers.length > 0) {
+                  for (const transfer of transaction.tokenTransfers) {
+                    console.log("Checking token transfer:", transfer);
+                    if (transfer.toUserAccount === userPubKey) {
+                      // If it's a SOL-equivalent token transfer, convert it
+                      totalRefund += transfer.tokenAmount || 0;
+                      console.log("Found token refund:", transfer.tokenAmount);
+                    }
+                  }
+                }
+                
+                // If no refund found in transfers, use the minimum acceptable refund as fallback
+                if (totalRefund === 0 && minAcceptableRefund > 0) {
+                  totalRefund = Number(minAcceptableRefund);
+                  console.log("No refund found in transfers, using minAcceptableRefund:", minAcceptableRefund.toString());
                 }
                 
                 // Convert to SOL (from lamports)
                 const totalRefundSOL = totalRefund / 1e9;
                 const pricePerToken = amount > 0 ? totalRefundSOL / Number(amount) : 0;
+                
+                console.log("Final unhype calculation:", {
+                  totalRefund,
+                  totalRefundSOL,
+                  pricePerToken,
+                  amount: amount.toString()
+                });
                 
                 await prismaClient.event.create({
                   data: {

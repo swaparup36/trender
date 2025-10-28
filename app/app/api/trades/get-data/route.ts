@@ -29,6 +29,8 @@ export async function GET(req: NextRequest){
             }
         });
 
+        console.log("tradeData: ", tradeData);
+
         // prepare kline chart data
         const chartData = [];
         const interval = 5 * 60 * 1000;
@@ -57,6 +59,8 @@ export async function GET(req: NextRequest){
             }
 
         }
+
+        console.log("chartData: ", chartData);
 
         return NextResponse.json({
             success: true,

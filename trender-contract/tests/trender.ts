@@ -38,6 +38,42 @@ describe("trender", () => {
       .rpc();
   });
 
+  it("treasury is properly initialized", async () => {
+    // Derive PDAs for config and treasury
+    const [configPda] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("config")],
+      program.programId
+    );
+    const [treasuryPda] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("treasury")],
+      program.programId
+    );
+
+    // Verify config account is properly initialized
+    const config = await program.account.config.fetch(configPda);
+    assert.ok(config.admin.equals(provider.wallet.publicKey), "Config admin should be the payer");
+    assert.ok(config.bump > 0, "Config bump should be set");
+
+    // Verify treasury account exists and has the correct properties
+    const treasuryAccountInfo = await provider.connection.getAccountInfo(treasuryPda);
+    assert.ok(treasuryAccountInfo !== null, "Treasury account should exist");
+    assert.ok(treasuryAccountInfo.owner.equals(program.programId), "Treasury should be owned by the program");
+    
+    // Verify treasury has minimum rent-exempt balance
+    const rentExempt = await provider.connection.getMinimumBalanceForRentExemption(8); // treasury space is 8 bytes
+    assert.ok(
+      treasuryAccountInfo.lamports >= rentExempt,
+      "Treasury should have at least rent-exempt balance"
+    );
+
+    // Verify treasury account data size
+    assert.strictEqual(
+      treasuryAccountInfo.data.length,
+      8, // 8 bytes for anchor discriminator since PostVault is empty struct
+      "Treasury account should have correct data size"
+    );
+  });
+
   it("initialize post pool", async () => {
     const creator = anchor.web3.Keypair.generate();
     const postId = 10;
