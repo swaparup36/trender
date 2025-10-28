@@ -29,7 +29,7 @@ export async function GET(req: NextRequest){
             }
         });
 
-        console.log("tradeData: ", tradeData);
+        // console.log("tradeData: ", tradeData);
 
         // prepare kline chart data
         const chartData = [];
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest){
 
         }
 
-        console.log("chartData: ", chartData);
+        // console.log("chartData: ", chartData);
 
         return NextResponse.json({
             success: true,

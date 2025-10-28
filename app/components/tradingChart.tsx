@@ -26,7 +26,7 @@ const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
             height: 100%; 
             color: #888; 
             font-size: 14px;
-            background: #0a0e27;
+            background: #000000;
             border-radius: 8px;
           ">
             No chart data available
@@ -44,6 +44,7 @@ const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
         width: chartContainerRef.current.clientWidth,
         height: 400,
         layout: {
+          background: { color: '#000000' },
           textColor: "#ffffff",
         },
         grid: {
@@ -52,19 +53,41 @@ const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
         },
         crosshair: {
           mode: 1,
+          vertLine: {
+            visible: true,
+            labelVisible: true,
+            color: '#758696',
+            width: 1,
+            style: 0,
+          },
+          horzLine: {
+            visible: true,
+            labelVisible: true,
+            color: '#758696',
+            width: 1,
+            style: 0,
+          },
         },
         timeScale: {
           borderColor: "#485c7b",
           timeVisible: true,
           secondsVisible: false,
         },
-      });
-
-      // Set background color after creation
-      chart.applyOptions({
-        layout: {
-          textColor: "#ffffff",
-        }
+        rightPriceScale: {
+          borderColor: "#485c7b",
+          visible: true,
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.1,
+          },
+          mode: 0,
+          autoScale: true,
+          entireTextOnly: false,
+          minimumWidth: 80,
+        },
+        leftPriceScale: {
+          visible: false,
+        },
       });
 
       console.log("Chart created successfully");
@@ -76,6 +99,11 @@ const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
         borderDownColor: "#ef5350",
         wickUpColor: "#26a69a",
         wickDownColor: "#ef5350",
+        priceFormat: {
+          type: 'price',
+          precision: 9,
+          minMove: 0.000000001,
+        },
       });
 
       console.log("Candlestick series added successfully");
@@ -83,24 +111,65 @@ const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
       // Convert the data to the correct format for lightweight-charts
       const formattedData = data.map(item => {
         const timestamp = Math.floor(new Date(item.time).getTime() / 1000);
+        // Ensure all price values are valid numbers and not zero
+        const open = Number(item.open) || 0;
+        const high = Number(item.high) || 0;
+        const low = Number(item.low) || 0;
+        const close = Number(item.close) || 0;
+        
         return {
           time: timestamp as any, // Type assertion for Time
-          open: Number(item.open) || 0,
-          high: Number(item.high) || 0,
-          low: Number(item.low) || 0,
-          close: Number(item.close) || 0,
+          open: open,
+          high: high,
+          low: low,
+          close: close,
         };
       }).filter(item => {
-        // Filter out invalid data points
-        return item.time > 0 && !isNaN(item.open) && !isNaN(item.high) && !isNaN(item.low) && !isNaN(item.close);
+        // Filter out invalid data points - ensure we have valid prices
+        return item.time > 0 && 
+               !isNaN(item.open) && !isNaN(item.high) && !isNaN(item.low) && !isNaN(item.close) &&
+               item.open > 0 && item.high > 0 && item.low > 0 && item.close > 0; // Ensure no zero prices
       });
 
       console.log("Formatted chart data:", formattedData);
       
       if (formattedData.length > 0) {
+        // Calculate price range for better scaling
+        const allPrices = formattedData.flatMap(item => [item.open, item.high, item.low, item.close]);
+        const minPrice = Math.min(...allPrices);
+        const maxPrice = Math.max(...allPrices);
+        const priceRange = maxPrice - minPrice;
+        
+        console.log("Price range:", { minPrice, maxPrice, priceRange });
+        
+        // Set data and configure price scale
         candleSeries.setData(formattedData);
+        
+        // Apply price scale options with proper range
+        chart.priceScale('right').applyOptions({
+          autoScale: true,
+          mode: 0, // Normal mode
+          invertScale: false,
+          alignLabels: true,
+          scaleMargins: {
+            top: 0.1,
+            bottom: 0.1,
+          },
+        });
+        
         chart.timeScale().fitContent();
         console.log("Chart data set successfully");
+
+        // Add crosshair move listener to track price on hover
+        chart.subscribeCrosshairMove((param) => {
+          if (param.time && param.point) {
+            const data = param.seriesData.get(candleSeries);
+            if (data) {
+              console.log("Crosshair data:", data);
+              // The crosshair labels will display the values automatically
+            }
+          }
+        });
       } else {
         console.error("No valid data points to display");
       }
@@ -127,7 +196,7 @@ const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
             height: 100%; 
             color: #ef5350; 
             font-size: 14px;
-            background: #0a0e27;
+            background: #000000;
             border-radius: 8px;
           ">
             Error loading chart: ${error instanceof Error ? error.message : 'Unknown error'}
@@ -141,7 +210,7 @@ const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
     <div 
       ref={chartContainerRef} 
       className="w-full h-full"
-      style={{ backgroundColor: '#0a0e27', borderRadius: '8px' }}
+      style={{ backgroundColor: '#000000', borderRadius: '8px' }}
     />
   );
 };

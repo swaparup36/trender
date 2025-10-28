@@ -34,7 +34,7 @@ model Event {
   post       Post      @relation(fields: [postId], references: [id])
   eventType  EventType
   userPubKey String
-  amount     Int
+  amount     BigInt
   price      Float
   totalCost  Float
   timestamp  DateTime
@@ -46,7 +46,7 @@ model Orders {
   postId      Int
   post        Post     @relation(fields: [postId], references: [id])
   orderType   OrderType
-  amount      Int
+  amount      BigInt
   price       Float
   totalCost   Float
   createdAt   DateTime @default(now())

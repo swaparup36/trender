@@ -95,9 +95,10 @@ export async function POST(req: NextRequest) {
                 const totalCostSOL = totalCost / 1e9;
                 const pricePerToken = amount > 0 ? totalCostSOL / Number(amount) : 0;
                 
+                // Use BigInt directly for the database - Prisma schema already supports BigInt
                 await prismaClient.event.create({
                   data: {
-                    amount: Number(amount),
+                    amount: amount, // Keep as BigInt
                     eventType: "HYPE",
                     price: pricePerToken,
                     timestamp: new Date(timestamp * 1000),
@@ -173,9 +174,10 @@ export async function POST(req: NextRequest) {
                   amount: amount.toString()
                 });
                 
+                // Use BigInt directly for the database - Prisma schema already supports BigInt
                 await prismaClient.event.create({
                   data: {
-                    amount: Number(amount),
+                    amount: amount, // Keep as BigInt
                     eventType: "UNHYPE",
                     price: pricePerToken,
                     timestamp: new Date(timestamp * 1000),
