@@ -69,7 +69,6 @@ export function LinkPreview({ metadata }: LinkPreviewProps) {
           </div>
         )}
 
-        {/* Fallback icon when no image or image error */}
         {(!metadata.image || imageError) && (
           <div className="w-16 h-16 rounded-md bg-muted/20 flex items-center justify-center flex-shrink-0">
             {getIcon()}
@@ -107,7 +106,5 @@ interface LinkPreviewContainerProps {
 }
 
 export function LinkPreviewContainer({ content }: LinkPreviewContainerProps) {
-  // This component will be imported and used in the main component
-  // We'll implement the link detection and preview rendering logic here
-  return null; // Placeholder for now
+  return null;
 }
