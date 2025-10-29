@@ -30,13 +30,11 @@ export default function CreatePost() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         alert('Please select a valid image file');
         return;
       }
       
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         alert('Image size must be less than 5MB');
         return;
@@ -44,7 +42,6 @@ export default function CreatePost() {
 
       setPostImage(file);
       
-      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -64,6 +61,12 @@ export default function CreatePost() {
 
     if (parseFloat(initialDeposit) < 0.1) {
       alert("Initial deposit must be at least 0.1 SOL");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (description.length > 400) {
+      alert("Description cannot exceed 400 characters");
       setIsSubmitting(false);
       return;
     }
@@ -171,14 +174,24 @@ export default function CreatePost() {
                 id="description"
                 placeholder="Describe your content, idea, or project..."
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value.length <= 600) {
+                    setDescription(e.target.value);
+                  }
+                }}
                 required
                 rows={6}
                 className="bg-background/50 border-border/50 focus:border-cyan-500/50 resize-none"
+                maxLength={600}
               />
-              <p className="text-xs text-muted-foreground">
-                Convince people to hype your content. What makes it special?
-              </p>
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">
+                  Convince people to hype your content. What makes it special?
+                </p>
+                <p className={`text-xs ${description.length > 350 ? 'text-orange-400' : description.length === 400 ? 'text-red-400' : 'text-muted-foreground'}`}>
+                  {description.length}/400
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -292,7 +305,7 @@ export default function CreatePost() {
             <div className="pt-4 space-y-3">
               <Button
                 type="submit"
-                disabled={isSubmitting || !title || !description || depositAmount < 0.1}
+                disabled={isSubmitting || !title || !description || depositAmount < 0.1 || description.length > 400}
                 className="w-full bg-gradient-to-r from-pink-500 to-cyan-500 hover:from-pink-600 hover:to-cyan-600 neon-glow-pink font-bold text-lg py-6"
               >
                 {isSubmitting ? (

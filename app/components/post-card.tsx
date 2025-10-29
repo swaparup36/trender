@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { TradeModal } from '@/components/trade-modal';
 import { PostType } from '@/types/types';
 import Image from 'next/image';
+import { ContentWithLinks } from '@/components/content-with-links';
 
 export function PostCard({
   id,
@@ -56,9 +57,7 @@ export function PostCard({
             <h3 className="text-xl font-bold mb-2 bg-gradient-to-r from-cyan-300 to-pink-300 bg-clip-text text-transparent line-clamp-2">
               {title}
             </h3>
-            <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-              {content}
-            </p>
+            <ContentWithLinks content={content} maxPreviews={1} />
           </div>
 
           <Badge variant="outline" className="shrink-0 border-cyan-500/50 text-cyan-400">

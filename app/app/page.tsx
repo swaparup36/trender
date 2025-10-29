@@ -29,7 +29,7 @@ export default function Home() {
         <div className="text-center space-y-4 py-12">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/30 mb-4">
             <Flame className="h-4 w-4 text-cyan-400" />
-            <span className="text-sm font-medium text-cyan-400">Powered by Solana</span>
+            <span className="text-sm font-medium text-cyan-400">Currently On Devenet</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-cyan-400 via-pink-400 to-green-400 bg-clip-text text-transparent leading-tight">
