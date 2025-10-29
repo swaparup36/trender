@@ -8,7 +8,7 @@ import { PostsProvider } from '@/contexts/PostsContext';
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Fan War - Hype Your Favorite Content',
+  title: 'Trender - Hype Your Favorite Content',
   description: 'A Solana dApp where creators post content backed by SOL liquidity',
 };
 
