@@ -36,7 +36,7 @@ export default function Home() {
             Hype What You Love
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Support creators through AMM-style bonding curves. Buy hype, sell hype, earn rewards.
+            Support creators through AMM-style bonding curves. Hype the posts you like, Unhype what you do not like and earn rewards.
           </p>
 
           <div className="flex gap-4 justify-center pt-4">

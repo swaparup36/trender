@@ -69,11 +69,12 @@ export function PostsProvider({ children }: PostsProviderProps) {
           title: post.title,
           content: post.content,
           creator: post.userPubKey,
+          imageUrl: post.imageUrl || undefined,
           hypePrice: price/1e9,
           reservedSol: postPool.reservedSol.toNumber(),
           reservedHype: postPool.reservedHype.toNumber(),
           totalHype: postPool.totalHype.toNumber(),
-          userHypeBalance: hypeRecord ? hypeRecord.amount.toNumber() : 0
+          userHypeBalance: hypeRecord ? hypeRecord.amount.toNumber() : 0,
         }
 
         console.log("post to push: ", postDetails);

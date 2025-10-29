@@ -7,7 +7,8 @@ export type PostType = {
   reservedHype: number,
   hypePrice: number,
   totalHype: number,
-  userHypeBalance?: number
+  userHypeBalance?: number,
+  imageUrl?: string
 }
 
 export type cahrtDataType = {

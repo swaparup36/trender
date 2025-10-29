@@ -6,7 +6,7 @@ const prismaClient = new PrismaClient();
 export async function POST(req: NextRequest){
     const body = await req.json();
     try {
-        const { userPubKey, title, content } = body;
+        const { userPubKey, title, content, imageUrl } = body;
         if (!userPubKey || !title || !content) {
             return NextResponse.json({
                 success: false,
@@ -18,7 +18,8 @@ export async function POST(req: NextRequest){
             data: {
                 userPubKey,
                 title,
-                content
+                content,
+                imageUrl: imageUrl || null,
             }
         });
 

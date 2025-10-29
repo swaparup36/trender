@@ -6,13 +6,51 @@ import { cahrtDataType } from "@/types/types";
 
 interface CandleChartProps {
   data: cahrtDataType[];
+  isLoading?: boolean;
 }
 
-const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
+const CandleChart: React.FC<CandleChartProps> = ({ data, isLoading = false }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
+    
+    // Show loading state
+    if (isLoading) {
+      if (chartContainerRef.current) {
+        chartContainerRef.current.innerHTML = `
+          <div style="
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100%; 
+            color: #888; 
+            font-size: 14px;
+            background: #000000;
+            border-radius: 8px;
+          ">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="
+                width: 16px;
+                height: 16px;
+                border: 2px solid #333;
+                border-top: 2px solid #888;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+              "></div>
+              Loading chart data...
+            </div>
+            <style>
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            </style>
+          </div>
+        `;
+      }
+      return;
+    }
     
     // Check if we have valid data
     if (!data || data.length === 0) {
@@ -204,7 +242,7 @@ const CandleChart: React.FC<CandleChartProps> = ({ data }) => {
         `;
       }
     }
-  }, [data]);
+  }, [data, isLoading]);
 
   return (
     <div 

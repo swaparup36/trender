@@ -74,7 +74,7 @@ export default function Dashboard() {
         try {
           hypeRecord = await getUserHypeRecord(walletCtx, new PublicKey(post.userPubKey), post.id);
         } catch (error) {
-          // User might not have a hype record for this post, which is fine
+          // User don't have a hype record for this post
         }
 
         console.log("reservedHype: ", postPool.reservedHype.toNumber());

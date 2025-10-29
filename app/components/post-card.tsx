@@ -7,6 +7,7 @@ import { TrendingUp, TrendingDown, Flame, User } from 'lucide-react';
 import { useState } from 'react';
 import { TradeModal } from '@/components/trade-modal';
 import { PostType } from '@/types/types';
+import Image from 'next/image';
 
 export function PostCard({
   id,
@@ -18,6 +19,7 @@ export function PostCard({
   hypePrice,
   totalHype,
   userHypeBalance = 0,
+  imageUrl,
 }: PostType) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
@@ -37,6 +39,18 @@ export function PostCard({
       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
 
       <div className="relative p-6 space-y-4">
+        {imageUrl && (
+          <div className="relative w-full h-48 rounded-lg overflow-hidden mb-4">
+            <Image
+              src={imageUrl}
+              alt={title}
+              fill
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+          </div>
+        )}
+
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <h3 className="text-xl font-bold mb-2 bg-gradient-to-r from-cyan-300 to-pink-300 bg-clip-text text-transparent line-clamp-2">
@@ -106,7 +120,8 @@ export function PostCard({
           hypePrice,
           totalHype,
           userHypeBalance,
-          content
+          content,
+          imageUrl
         }}
       />
     </Card>

@@ -34,10 +34,12 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionStatus, setTransactionStatus] = useState<string>('');
   const [chartData, setChartData] = useState<cahrtDataType[]>([]);
+  const [isLoadingChart, setIsLoadingChart] = useState<boolean>(false);
   const [solBalance, setSolBalance] = useState<number>(0);
 
   const getChartData = useCallback(async () => {
-    if (!open) return; // Don't fetch if modal is closed
+    if (!open) return;
+    setIsLoadingChart(true);
     
     try {
       const response = await axios.get(`/api/trades/get-data`, {
@@ -49,12 +51,15 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
       console.log("get chart data response: ", response.data);
       if (!response.data.success) {
         console.error("Failed to fetch chart data");
+        setIsLoadingChart(false);
         return;
       }
 
       setChartData(response.data.chartData);
     } catch (error) {
       console.error("Failed to fetch event logs: ", error);
+    } finally {
+      setIsLoadingChart(false);
     }
   }, [post.id, open]);
 
@@ -341,7 +346,7 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
               </div>
 
               <div className="relative h-80 bg-background/80 rounded-lg p-4 border border-border/30">
-                <CandleChart data={chartData} />
+                <CandleChart data={chartData} isLoading={isLoadingChart} />
                 <div className="absolute bottom-2 left-0 right-0 flex justify-between px-4 text-xs text-muted-foreground font-mono">
                   <span>-15m</span>
                   <span>-10m</span>

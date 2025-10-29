@@ -22,16 +22,15 @@ export async function GET(req: NextRequest){
         const tradeData = eventLogs.map((log) => {
             return {
                 time: new Date(log.timestamp).toISOString(),
-                open: log.price,
-                high: log.price,
-                low: log.price,
-                close: log.price,
+                open: log.price*1e9,
+                high: log.price*1e9,
+                low: log.price*1e9,
+                close: log.price*1e9,
             }
         });
 
         // console.log("tradeData: ", tradeData);
 
-        // prepare kline chart data
         const chartData = [];
         const interval = 5 * 60 * 1000;
         const startTime = tradeData[0]?.time ? new Date(tradeData[0].time).getTime() : 0;

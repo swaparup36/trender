@@ -5,14 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Flame, Coins, Sparkles } from 'lucide-react';
+import { Flame, Coins, Sparkles, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import axios from 'axios';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { initializePost } from '@/utils/smartcontractHandlers';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { usePosts } from '@/contexts/PostsContext';
+import uploadImage from '@/utils/uploader';
 
 export default function CreatePost() {
   const walletCtx = useWallet();
@@ -20,8 +22,41 @@ export default function CreatePost() {
   const { refreshPosts } = usePosts();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [postImage, setPostImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [initialDeposit, setInitialDeposit] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB');
+        return;
+      }
+
+      setPostImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setPostImage(null);
+    setImagePreview(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,11 +74,28 @@ export default function CreatePost() {
         return;
       }
 
+      let img_url = '';
+
+      if(postImage) {
+        const uploadImgFormData = new FormData();
+        uploadImgFormData.append('file', postImage);
+        const uoloadImgRes = await uploadImage(uploadImgFormData);
+        const uploadImgResObj = JSON.parse(uoloadImgRes);
+
+        if(!uploadImgResObj.success){
+          setIsSubmitting(false);
+          return alert(`error uploading image: ${uploadImgResObj.error}`);
+        }
+      
+        img_url = uploadImgResObj.imageURL;
+      }
+
       // POST request to /api/post/create
       const res = await axios.post('/api/post/create', {
         userPubKey: walletCtx.publicKey.toBase58(),
         title,
         content: description,
+        imageUrl: img_url || undefined,
       });
 
       if (res.status !== 200) {
@@ -126,6 +178,69 @@ export default function CreatePost() {
               />
               <p className="text-xs text-muted-foreground">
                 Convince people to hype your content. What makes it special?
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="image" className="text-base font-semibold">
+                Post Image <span className="text-muted-foreground text-sm">(Optional)</span>
+              </Label>
+              
+              {!imagePreview ? (
+                <div className="relative">
+                  <Input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                  <Label
+                    htmlFor="image"
+                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border/50 rounded-lg cursor-pointer bg-background/25 hover:bg-background/50 transition-colors"
+                  >
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <Upload className="h-8 w-8 mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 5MB</p>
+                    </div>
+                  </Label>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="relative w-full h-48 rounded-lg overflow-hidden bg-background/25 border border-border/50">
+                    <Image
+                      src={imagePreview}
+                      alt="Preview"
+                      fill
+                      className="object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/20" />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <ImageIcon className="h-4 w-4 text-green-400" />
+                    <span className="text-sm text-muted-foreground">
+                      {postImage?.name} ({(postImage?.size || 0) > 1024 * 1024 
+                        ? `${((postImage?.size || 0) / (1024 * 1024)).toFixed(1)}MB` 
+                        : `${((postImage?.size || 0) / 1024).toFixed(0)}KB`})
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              <p className="text-xs text-muted-foreground">
+                Add an eye-catching image to make your post stand out!
               </p>
             </div>
 
