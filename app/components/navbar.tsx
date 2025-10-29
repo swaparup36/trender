@@ -43,6 +43,9 @@ export function Navbar() {
             <Link href="/" className="text-sm font-medium hover:text-cyan-400 transition-colors">
               Feed
             </Link>
+            <Link href="/trending" className="text-sm font-medium hover:text-orange-400 transition-colors">
+              Trending
+            </Link>
             <Link href="/create" className="text-sm font-medium hover:text-pink-400 transition-colors">
               Create
             </Link>

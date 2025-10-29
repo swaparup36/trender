@@ -8,8 +8,10 @@ import { Search, Flame } from 'lucide-react';
 import { useState } from 'react';
 import { usePosts } from '@/contexts/PostsContext';
 import { useRouter } from 'next/navigation';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 export default function Home() {
+  const walletContext = useWallet();
   const router = useRouter();
   const { allPosts, isLoading, error } = usePosts();
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,7 +67,7 @@ export default function Home() {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Trending Posts</h2>
+            <h2 className="text-2xl font-bold">All Posts</h2>
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -94,11 +96,19 @@ export default function Home() {
             )}
           </div>
 
-          {!isLoading && !error && filteredPosts.length === 0 && (
+          {!isLoading && !error && filteredPosts.length === 0 && walletContext.connected && (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No posts found matching your search.</p>
             </div>
           )}
+
+          {
+            !isLoading && !error && allPosts.length === 0 && !walletContext.connected && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">No posts available. Connect your wallet to create the first post!</p>
+              </div>
+            )
+          }
         </div>
       </div>
     </main>
