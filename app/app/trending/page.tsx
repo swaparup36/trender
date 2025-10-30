@@ -28,7 +28,13 @@ export default function TrendingPage() {
     setError(null);
     
     try {
-      const getTrendingPostsRes = await axios.get('/api/post/get-all');
+      const getTrendingPostsRes = await axios.get('/api/post/get-all', {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      });
 
       if (getTrendingPostsRes.status !== 200) {
         console.error("Error getting trending posts: ", getTrendingPostsRes.data.message);
@@ -303,7 +309,7 @@ export default function TrendingPage() {
                                 className="border-green-500/50 text-green-400"
                               >
                                 <TrendingUp className="h-3 w-3 mr-1" />
-                                {(post.totalHype / 1e6).toFixed(2)}M Total Hype
+                                {(post.totalHype / 1e6).toFixed(2)} Total Hype
                               </Badge>
                             </div>
                             <div className="flex items-center gap-2">

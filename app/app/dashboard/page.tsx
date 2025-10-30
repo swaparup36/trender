@@ -115,6 +115,7 @@ export default function Dashboard() {
   }, [walletCtx]);
 
   const getAllPositionsUserHyped = useCallback(async () => {
+    console.log("getting all positions")
     setIsLoading(true);
     setError(null);
 
@@ -124,12 +125,16 @@ export default function Dashboard() {
       setIsLoading(false);
       return;
     }
+
+    console.log("getting all positions 2")
     
     try {
-      const getAllPostsRes = await axios.get('/api/post/get-by-user', {
-        params: {
-          userPubKey: walletCtx.publicKey?.toBase58() || ''
-        }
+      const getAllPostsRes = await axios.get('/api/post/get-all', {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
       });
 
       if (getAllPostsRes.status !== 200) {
@@ -137,6 +142,8 @@ export default function Dashboard() {
         setError(getAllPostsRes.data.message || "Failed to fetch posts");
         return;
       }
+
+      console.log("getting all positions: ", getAllPostsRes.data.allPosts)
 
       let allPosts: HypePosition[] = [];
       for (let post of getAllPostsRes.data.allPosts) {

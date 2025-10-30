@@ -33,7 +33,13 @@ export function PostsProvider({ children }: PostsProviderProps) {
     setError(null);
     
     try {
-      const getAllPostsRes = await axios.get('/api/post/get-all');
+      const getAllPostsRes = await axios.get('/api/post/get-all', {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      });
 
       if (getAllPostsRes.status !== 200) {
         console.error("Error getting all posts: ", getAllPostsRes.data.message);
@@ -53,11 +59,11 @@ export function PostsProvider({ children }: PostsProviderProps) {
         try {
           hypeRecord = await getUserHypeRecord(walletCtx, new PublicKey(post.userPubKey), post.id);
         } catch (error) {
-          // User might not have a hype record for this post, which is fine
+          // User do not have a hype record for this post
         }
 
-        console.log("reservedHype: ", postPool.reservedHype.toNumber());
-        console.log("reservedSol: ", postPool.reservedSol.toNumber());
+        // console.log("reservedHype: ", postPool.reservedHype.toNumber());
+        // console.log("reservedSol: ", postPool.reservedSol.toNumber());
 
         const ammConstant = postPool.reservedHype.toNumber() * postPool.reservedSol.toNumber();
         const newReservedHype = postPool.reservedHype.toNumber() - 1000000;
@@ -77,7 +83,7 @@ export function PostsProvider({ children }: PostsProviderProps) {
           userHypeBalance: hypeRecord ? hypeRecord.amount.toNumber() : 0,
         }
 
-        console.log("post to push: ", postDetails);
+        // console.log("post to push: ", postDetails);
 
         allPosts.push(postDetails);
       }

@@ -39,9 +39,9 @@ export async function GET(req: NextRequest){
                 userPubKey: log.userPubKey,
                 postId: log.postId,
                 orderType: log.eventType === 'HYPE' ? 'BUY' : 'SELL',
-                amount: log.amount,
-                price: log.price,
-                totalCost: log.totalCost,
+                amount: typeof log.amount === 'bigint' ? Number(log.amount) : log.amount,
+                price: typeof log.price === 'bigint' ? Number(log.price) : log.price,
+                totalCost: typeof log.totalCost === 'bigint' ? Number(log.totalCost) : log.totalCost,
                 time: new Date(log.timestamp).toISOString(),
             }
         });

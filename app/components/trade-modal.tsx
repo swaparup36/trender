@@ -117,7 +117,6 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
   };
 
   const handleTrade = async (orderType: string) => {
-    // Prevent multiple simultaneous transactions
     if (isProcessing) {
       console.log("Transaction already in progress, ignoring request");
       return;
@@ -147,7 +146,6 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
         console.log("Hype post transaction successful");
         setTransactionStatus('Transaction confirmed! Updating data...');
 
-        // Add a small delay before fetching updated data
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         const hypeRecord = await getUserHypeRecord(walletCtx, new PublicKey(post.creator), post.id);
@@ -186,11 +184,9 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
 
         setPost(postDetails);
         
-        // Refresh the posts in the global context
         await refreshPosts();
         setTransactionStatus('Purchase completed successfully!');
       } else if (orderType === 'sell') {
-        // Execute sell/unhypePost logic here
         const slippage = 0.005; // 0.5% slippage tolerance
         const minSolToReceive = parseFloat(toAmount) * (1 - slippage);
         
@@ -246,8 +242,7 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
         }
 
         setPost(postDetails);
-        
-        // Refresh the posts in the global context
+
         await refreshPosts();
         setTransactionStatus('Sale completed successfully!');
       } else {
@@ -258,7 +253,6 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
       console.error("Trade failed: ", error);
       setTransactionStatus(`Error: ${error.message || 'Unknown error occurred'}`);
     } finally {
-      // Keep the status visible for a few seconds before clearing
       setTimeout(() => {
         setIsProcessing(false);
         setTransactionStatus('');
