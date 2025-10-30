@@ -263,7 +263,7 @@ export function TradeModal({ open, onOpenChange, thisPost }: TradeModalProps) {
     }
   };
 
-  const estimatedFee = fromAmount ? (parseFloat(fromAmount) * 0.01).toFixed(4) : '0.0000';
+  const estimatedFee = activeTab === 'buy' ? fromAmount ? (parseFloat(fromAmount) * 0.01).toFixed(9) : '0.0000' : toAmount ? (parseFloat(toAmount) * 0.01).toFixed(9) : '0.0000';
   const slippage = '0.5';
 
   const fetchSolBalance = useCallback(async () => {
